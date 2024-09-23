@@ -18,8 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "gd5f2gm7xexxg.h"
-#include "stm32l4xx_hal_uart.h"
+#include "ltc5589.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -120,14 +119,18 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
   // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+    
+  //------------------------------LTC5589测试------------------------------
+  LTC5589_Info_Struct ltc5589_obj;
+  LTC5589_Init(&ltc5589_obj, &hspi2, GPIO_PIN_12, GPIOB, GPIO_PIN_6, GPIOC);
 
-    RFMD2081_Init();
-    RFMD2081_Device_Reset();
+    // RFMD2081_Init();
+    // RFMD2081_Device_Reset();
     // RFMD2081_WriteBit(RFMD2081_REG_PLL_CTRL , 11, 0);
-    RFMD2081_SetUP(RFMD2081_SOFTWARE_CONTROL);
-    RFMD2081_SetFrequency(RFMD2081_PLL_1, 435);
-    RFMD2081_WriteBit(RFMD2081_REG_GPO, 0, 1);
-    RFMD2081_Device_Enable();
+    // RFMD2081_SetUP(RFMD2081_SOFTWARE_CONTROL);
+    // RFMD2081_SetFrequency(RFMD2081_PLL_1, 435);
+    // RFMD2081_WriteBit(RFMD2081_REG_GPO, 0, 1);
+    // RFMD2081_Device_Enable();
   // GM5F2GM7XEXXG_Init(&gm5f2gm7xexxg_obj, &hspi1, GPIO_PIN_6, GPIOB, UTILS_LOOP);
 
   // UTILS_Status status = GM5F2GM7XEXXG_Set_Features(&gm5f2gm7xexxg_obj, 0xA0, 0x0);
@@ -145,11 +148,20 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+      LTC5589_Q_Channel_Disable(&ltc5589_obj);
+      HAL_Delay(10);
+
+
+
+
+
+
       // HAL_SPI_Transmit_DMA(&hspi2, write_data, sizeof(write_data));
       // UTILS_Status status = GM5F2GM7XEXXG_Program(&gm5f2gm7xexxg_obj, 0xFFFF, 0x00, write_data, sizeof(write_data));
       // UTILS_Status status = GM5F2GM7XEXXG_ReadDataFromCache(&gm5f2gm7xexxg_obj, 0x1FF, 0x00, rx_data, sizeof(rx_data));
 
-        RFMD2081_Read(RFMD2081_REG_PLL_CTRL);
+        // RFMD2081_Read(RFMD2081_REG_PLL_CTRL);
       // UTILS_Status status = GM5F2GM7XEXXG_Program(&gm5f2gm7xexxg_obj, 0x1FF, 0x00, tx_data, sizeof(tx_data));
       // if (status == UTILS_ERROR) {
       //     uint8_t buff[] = "Error";
@@ -255,7 +267,6 @@ int main(void)
       //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
       // }
 
-      HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }
