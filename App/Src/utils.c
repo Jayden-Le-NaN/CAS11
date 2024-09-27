@@ -120,6 +120,29 @@ UTILS_Status UTILS_WriteBit_Word(uint16_t* word, uint8_t bit_pos, UTILS_BitState
 }
 
 /*
+ * @brief               设置数据指定比特位的数值
+ * @param word          需要设置的数据
+ * @param bit_pos       需要设置的比特位置
+ * @param bit_state     需要设置的数据大小
+ * @return              程序运行状态
+ * @note                建议使用提供宏函数 UTILS_WriteBit
+ */
+UTILS_Status UTILS_WriteBit_32bit(uint32_t* data, uint8_t bit_pos, UTILS_BitState bit_state) {
+    UTILS_Status status = UTILS_OK;
+    do {
+        if (bit_pos > 31) {
+            status = UTILS_ERROR;
+            break;
+        }
+        if (bit_state == UTILS_BIT_SET) 
+            *data |= (1 << bit_pos);
+        else
+            *data &= ~(1 << bit_pos);
+    } while(0);
+    return status;
+}
+
+/*
  * @brief               设置指定区域的比特为指定的值
  * @param byte          需要设置的字节
  * @param msb           目标位的高位索引
@@ -144,7 +167,7 @@ UTILS_Status UTILS_WriteBit_Zone_Byte(uint8_t* byte, uint8_t msb, uint8_t lsb, u
 
 /*
  * @brief               设置指定区域的比特为指定的值
- * @param byte          需要设置的字
+ * @param word          需要设置的字
  * @param msb           目标位的高位索引
  * @param lsb           目标位的地位索引
  * @param value         需要更改的值
@@ -154,13 +177,36 @@ UTILS_Status UTILS_WriteBit_Zone_Byte(uint8_t* byte, uint8_t msb, uint8_t lsb, u
 UTILS_Status UTILS_WriteBit_Zone_Word(uint16_t* word, uint8_t msb, uint8_t lsb, uint16_t value) {
     UTILS_Status status = UTILS_OK;
     do {
-        if (msb > 7 || lsb > 7 || msb < lsb) {
+        if (msb > 15 || lsb > 15 || msb < lsb) {
             status = UTILS_ERROR;
             break;
         }
-        uint8_t mask = ((1 << (msb - lsb + 1)) - 1) << lsb;
+        uint16_t mask = ((1 << (msb - lsb + 1)) - 1) << lsb;
         *word &= ~mask;
         *word |= (value << lsb) & mask;
+    } while(0);
+    return status;
+}
+
+/*
+ * @brief               设置指定区域的比特为指定的值
+ * @param data          需要设置的数据
+ * @param msb           目标位的高位索引
+ * @param lsb           目标位的地位索引
+ * @param val           需要更改的值
+ * @return              程序运行状态
+ * @note                建议直接使用提供的宏函数 UTILS_WriteBit_Zone
+ */
+UTILS_Status UTILS_WriteBit_Zone_32bit(uint32_t* data, uint8_t msb, uint8_t lsb, uint32_t val) {
+    UTILS_Status status = UTILS_OK;
+    do {
+        if (msb > 31 || lsb > 31 || msb < lsb) {
+            status = UTILS_ERROR;
+            break;
+        }
+        uint32_t mask = ((1 << (msb - lsb + 1)) - 1) << lsb;
+        *data &= ~mask;
+        *data |= (val << lsb) & mask;
     } while(0);
     return status;
 }

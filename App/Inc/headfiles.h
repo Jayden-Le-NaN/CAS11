@@ -12,6 +12,7 @@
 #include "pm004mnia.h"
 #include "gd5f2gm7xexxg.h"
 #include "ltc5589.h"
+#include "adf4252.h"
 
 //----------------------------------------
 // 软件

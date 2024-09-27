@@ -47,13 +47,15 @@ typedef enum {
 #define UTILS_WriteBit(data, bit_pos, bit_state) \
     _Generic((data), \
             uint8_t*: UTILS_WriteBit_Byte, \
-            uint16_t*: UTILS_WriteBit_Word \
+            uint16_t*: UTILS_WriteBit_Word, \
+            uint32_t*: UTILS_WriteBit_32bit \
             )(data, bit_pos, bit_state)
 
 #define UTILS_WriteBit_Zone(data, msb, lsb, value) \
     _Generic((data), \
-            uint8_t*: UTILS_WriteBit_Zone_Byte, \
-            uint16_t*: UTILS_WriteBit_Zone_Word \
+            uint8_t*: UTILS_WriteBit_Zone_Byte,     \
+            uint16_t*: UTILS_WriteBit_Zone_Word,    \
+            uint32_t*: UTILS_WriteBit_Zone_32bit    \
             )(data, msb, lsb, value)
 
 //------------------------------常用工具包(函数)------------------------------
@@ -61,8 +63,10 @@ UTILS_Status UTILS_RCC_GPIO_Enable(GPIO_TypeDef* GPIOx);
 void UTILS_Delay_us(uint32_t us);
 UTILS_Status UTILS_WriteBit_Byte(uint8_t* byte, uint8_t bit_pos, UTILS_BitState bit_state);
 UTILS_Status UTILS_WriteBit_Word(uint16_t* word, uint8_t bit_pos, UTILS_BitState bit_state);
+UTILS_Status UTILS_WriteBit_32bit(uint32_t* data, uint8_t bit_pos, UTILS_BitState bit_state);
 UTILS_Status UTILS_WriteBit_Zone_Byte(uint8_t* byte, uint8_t msb, uint8_t lsb, uint8_t value);
 UTILS_Status UTILS_WriteBit_Zone_Word(uint16_t* word, uint8_t msb, uint8_t lsb, uint16_t value);
+UTILS_Status UTILS_WriteBit_Zone_32bit(uint32_t* data, uint8_t msb, uint8_t lsb, uint32_t val);
 
 int32_t UTILS_Ceil(double data);
 int32_t UTILS_Log2(uint32_t value);
