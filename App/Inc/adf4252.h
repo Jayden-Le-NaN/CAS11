@@ -67,7 +67,7 @@
 //------------------------------噪声和毛刺抑制(不可更改值)------------------------------
 #define ADF4252_NAS_LOWEST_SPUR                 (0x00)
 #define ADF4252_NAS_LOW_NOISE_AND_SPUR          (0x01)
-#define ADF4252_NAX_LOWEST_NOISE                (0x07)
+#define ADF4252_NAS_LOWEST_NOISE                (0x07)
 
 //------------------------------RF预分频器设置------------------------------
 #define ADF4252_RF_PRESCALER_4                  (0x00)

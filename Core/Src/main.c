@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "ltc5589.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -119,10 +118,26 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
   // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+  //------------------------------本振ADF4252测试------------------------------
+  ADF4252_Info_Struct adf4252_obj;
+  ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT为100
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION为0
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD为120
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_R, 1);                                                 // 设置R为1
+  // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_REF_DOUBLER, ADF4252_STATUS_DISABLED);            // 设置double为disable
+  // ADF4252_Prescaler_Set(&adf4252_obj, ADF4252_RF_PRESCALER_8);
+  // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_PD_POLARITY, ADF4252_STATUS_POSITIVE);
+
     
+  //------------------------------RFMD2081测试------------------------------
+  // RFMD2081_Init();
+  // RFMD2081_Device_Reset();
+  // RFMD2081_Device_Enable();
+
   //------------------------------LTC5589测试------------------------------
-  LTC5589_Info_Struct ltc5589_obj;
-  LTC5589_Init(&ltc5589_obj, &hspi2, GPIO_PIN_12, GPIOB, GPIO_PIN_6, GPIOC);
+  // LTC5589_Info_Struct ltc5589_obj;
+  // LTC5589_Init(&ltc5589_obj, &hspi2, GPIO_PIN_12, GPIOB, GPIO_PIN_6, GPIOC);
 
     // RFMD2081_Init();
     // RFMD2081_Device_Reset();
@@ -138,7 +153,6 @@ int main(void)
   // uint8_t rx_data[sizeof(tx_data)] = {0};
   // uint8_t command;
   // uint8_t packet[16];
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -148,9 +162,42 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+      //------------------------------本振ADF4252测试------------------------------
 
-      LTC5589_Q_Channel_Disable(&ltc5589_obj);
-      HAL_Delay(10);
+      //------------------------------2440------------------------------
+      // (&adf4252_obj)->_val_rf_n_divider  = 0x7A0000;                
+      // (&adf4252_obj)->_val_rf_r_divider  = 0x108009;
+      // (&adf4252_obj)->_val_rf_control    = 0x82;
+      // (&adf4252_obj)->_val_master        = 0x7C3;
+      // (&adf4252_obj)->_val_if_n_divider  = 0x40A864;
+      // (&adf4252_obj)->_val_if_r_divider  = 0x195;
+      // (&adf4252_obj)->_val_if_control    = 0xA6;
+      // ADF4252_Write_All_Registers(&adf4252_obj);
+      // HAL_Delay(10000);
+      //------------------------------2450------------------------------
+      // (&adf4252_obj)->_val_rf_n_divider  = 0x7A8000;                
+      // (&adf4252_obj)->_val_rf_r_divider  = 0x108009;
+      // (&adf4252_obj)->_val_rf_control    = 0x82;
+      // (&adf4252_obj)->_val_master        = 0x743;
+      // (&adf4252_obj)->_val_if_n_divider  = 0x40A864;
+      // (&adf4252_obj)->_val_if_r_divider  = 0x195;
+      // (&adf4252_obj)->_val_if_control    = 0xA6;
+      // ADF4252_Write_All_Registers(&adf4252_obj);
+      // HAL_Delay(10000);
+      //------------------------------2460------------------------------
+      // (&adf4252_obj)->_val_rf_n_divider  = 0x7B0000;                
+      // (&adf4252_obj)->_val_rf_r_divider  = 0x108009;
+      // (&adf4252_obj)->_val_rf_control    = 0x82;
+      // (&adf4252_obj)->_val_master        = 0x7C3;
+      // (&adf4252_obj)->_val_if_n_divider  = 0x40A864;
+      // (&adf4252_obj)->_val_if_r_divider  = 0x195;
+      // (&adf4252_obj)->_val_if_control    = 0xA6;
+      // ADF4252_Write_All_Registers(&adf4252_obj);
+      // HAL_Delay(10000);
+
+      // RFMD2081_Read(RFMD2081_REG_XO);
+      // LTC5589_Q_Channel_Disable(&ltc5589_obj);
+      // HAL_Delay(10);
 
 
 
@@ -382,7 +429,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

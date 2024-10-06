@@ -1034,7 +1034,7 @@ void GM5F2GM7XEXXG_Init(GM5F2GM7XEXXG_Info_Struct* gm5f2gm7xexxg_obj, SPI_Handle
     gm5f2gm7xexxg_obj->_last_replace_dst_addr = 0xFFFFFFFF;
     gm5f2gm7xexxg_obj->_last_replace_src_addr = 0xFFFFFFFF;
 
-    //------------------------------配置CS引脚------------------------------
+    //------------------------------配置CS引脚-----------------------------
     UTILS_RCC_GPIO_Enable(gm5f2gm7xexxg_obj->cs_pin_type);
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     HAL_GPIO_WritePin(gm5f2gm7xexxg_obj->cs_pin_type, gm5f2gm7xexxg_obj->cs_pin, GPIO_PIN_SET);

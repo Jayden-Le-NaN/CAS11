@@ -29,10 +29,10 @@ UTILS_Status ADF4252_Write_register(ADF4252_Info_Struct* adf4252_obj, uint8_t re
     uint32_t reg_data;
     do {
         //------------------------------数据获取------------------------------
-        if (reg_addr == ADF4252_REG_RF_CONTROL) 
-            reg_data = adf4252_obj->_val_rf_control;
+        if (reg_addr == ADF4252_REG_RF_N_DIVIDER) 
+            reg_data = adf4252_obj->_val_rf_n_divider;
         else if (reg_addr == ADF4252_REG_RF_R_DIVIDER)
-            reg_data = adf4252_obj->_val_if_r_divider;
+            reg_data = adf4252_obj->_val_rf_r_divider;
         else if (reg_addr == ADF4252_REG_RF_CONTROL)
             reg_data = adf4252_obj->_val_rf_control;
         else if (reg_addr == ADF4252_REG_MASTER)
@@ -42,16 +42,16 @@ UTILS_Status ADF4252_Write_register(ADF4252_Info_Struct* adf4252_obj, uint8_t re
         else if (reg_addr == ADF4252_REG_IF_R_DIVIDER)
             reg_data = adf4252_obj->_val_if_r_divider;
         else if (reg_addr == ADF4252_REG_IF_CONTROL)
-            reg_data = adf4252_obj->_val_if_r_divider;
+            reg_data = adf4252_obj->_val_if_control;
         else {
             status = UTILS_ERROR;
             break;
         }
 
         //------------------------------数据装载------------------------------
-        packet[0] = reg_data & 0xFF;
+        packet[0] = (reg_data >> 16) & 0xFF;
         packet[1] = (reg_data >> 8) & 0xFF;
-        packet[2] = (reg_data >> 16) & 0xFF;
+        packet[2] = reg_data & 0xFF;
 
         //------------------------------把数据打出去------------------------------
         ADF4252_Transmit_Receive_Start();
@@ -250,13 +250,21 @@ void ADF4252_Init(ADF4252_Info_Struct* adf4252_obj, SPI_HandleTypeDef* spi, uint
     adf4252_obj->le_pin_type = le_pin_type;
 
     //------------------------------初始化各个寄存器的数据------------------------------
-    adf4252_obj->_val_rf_n_divider  = 0;                
-    adf4252_obj->_val_rf_r_divider  = 1;
-    adf4252_obj->_val_rf_control    = 2;
-    adf4252_obj->_val_master        = 3;
-    adf4252_obj->_val_if_n_divider  = 4;
-    adf4252_obj->_val_if_r_divider  = 5;
-    adf4252_obj->_val_if_control    = 6;
+    // adf4252_obj->_val_rf_n_divider  = 0;                
+    // adf4252_obj->_val_rf_r_divider  = 1;
+    // adf4252_obj->_val_rf_control    = 2;
+    // adf4252_obj->_val_master        = 3;
+    // adf4252_obj->_val_if_n_divider  = 4;
+    // adf4252_obj->_val_if_r_divider  = 5;
+    // adf4252_obj->_val_if_control    = 6 | (0x26 << 3);
+
+    adf4252_obj->_val_rf_n_divider  = 0x7A8000;                
+    adf4252_obj->_val_rf_r_divider  = 0x108009;
+    adf4252_obj->_val_rf_control    = 0x82;
+    adf4252_obj->_val_master        = 0x743;
+    adf4252_obj->_val_if_n_divider  = 0x40A864;
+    adf4252_obj->_val_if_r_divider  = 0x195;
+    adf4252_obj->_val_if_control    = 0xA6;
 
     //------------------------------使能引脚时钟------------------------------
     UTILS_RCC_GPIO_Enable(adf4252_obj->le_pin_type);
