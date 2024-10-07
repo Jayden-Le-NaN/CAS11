@@ -18,6 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "gd5f2gm7.h"
+#include "stm32l4xx_hal_uart.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -37,6 +39,7 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 GM5F2GM7XEXXG_Info_Struct gm5f2gm7xexxg_obj;
+GD5F2GM7_Info_Struct gd5f2gm7_obj;  
 
 
 /* USER CODE END PM */
@@ -56,12 +59,14 @@ uint8_t buff[] = "Hello World\n";
 uint8_t tx_buff[] = "Transmit";
 uint8_t rx_buff[] = "Receive";
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-    GM5F2GM7XEXXG_Transmit_IRQ_Handler(&gm5f2gm7xexxg_obj, hspi);
+    // GM5F2GM7XEXXG_Transmit_IRQ_Handler(&gm5f2gm7xexxg_obj, hspi);
+    GD5F2GM7_Transmit_IRQ_Handler(&gd5f2gm7_obj, hspi);
     // HAL_UART_Transmit(&huart1, tx_buff, sizeof(tx_buff), HAL_MAX_DELAY);
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
-    GM5F2GM7XEXXG_Receive_IRQ_Handler(&gm5f2gm7xexxg_obj, hspi);
+    // GM5F2GM7XEXXG_Receive_IRQ_Handler(&gm5f2gm7xexxg_obj, hspi);
+    GD5F2GM7_Receive_IRQ_Hanlder(&gd5f2gm7_obj, hspi);
     // HAL_UART_Transmit(&huart1, rx_buff, sizeof(rx_buff), HAL_MAX_DELAY);
 }
 
@@ -117,10 +122,20 @@ int main(void)
   MX_SPI1_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-  // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+
+  //------------------------------FLASH驱动测试------------------------------
+  uint8_t reg_status[256];
+  GD5F2GM7_Init(&gd5f2gm7_obj, &hspi1, GPIO_PIN_6, GPIOB);
+  GD5F2GM7_WriteEnable(&gd5f2gm7_obj);
+  GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xC0, reg_status);
+  HAL_UART_Transmit(&huart1, reg_status, 1, HAL_MAX_DELAY);
+
+    
+
   //------------------------------本振ADF4252测试------------------------------
-  ADF4252_Info_Struct adf4252_obj;
-  ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
+  // ADF4252_Info_Struct adf4252_obj;
+  // ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
   // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT为100
   // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION为0
   // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD为120
@@ -157,11 +172,60 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint8_t test_fsm = 0;
+  uint8_t page_data[256];
+  uint8_t cache_data[] = "JaydenLee";
+  uint8_t mask_data[] = "Hello World";
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+        //------------------------------FLASH驱动测试------------------------------
+        // GD5F2GM7_WriteEnable(&gd5f2gm7_obj);
+        // GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xC0, &reg_status);
+        // HAL_UART_Transmit(&huart1, &reg_status, 1, HAL_MAX_DELAY);
+        // HAL_Delay(500);
+        // GD5F2GM7_WriteDisable(&gd5f2gm7_obj);
+        // GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xC0, &reg_status);
+        // HAL_UART_Transmit(&huart1, &reg_status, 1, HAL_MAX_DELAY);
+        // HAL_Delay(500);
+
+        if (test_fsm == 0 && GD5F2GM7_ProgramLoad(&gd5f2gm7_obj, 504, cache_data, sizeof(cache_data), UTILS_DMA) == UTILS_OK) {
+            test_fsm = 1;
+        }
+        else if (test_fsm == 1 && GD5F2GM7_DMA_TransmitIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+            if (GD5F2GM7_ProgramExecute(&gd5f2gm7_obj, 2004) == UTILS_OK)
+                test_fsm = 2;
+        }
+        else if (test_fsm == 2 && GD5F2GM7_DeviceIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+            test_fsm = 3;
+        }
+        else if (test_fsm == 3 && GD5F2GM7_ProgramLoad(&gd5f2gm7_obj, 504, mask_data, sizeof(mask_data), UTILS_DMA) == UTILS_OK) {
+            test_fsm = 4;
+        }
+        else if (test_fsm == 1 && GD5F2GM7_DMA_TransmitIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+            if (GD5F2GM7_PageRead_ToCache(&gd5f2gm7_obj, 2004) == UTILS_OK)
+                test_fsm = 5;
+        }
+        else if (test_fsm == 5 && GD5F2GM7_DeviceIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+            test_fsm = 6;
+        }
+        else if (test_fsm == 6 && GD5F2GM7_ReadFromCache(&gd5f2gm7_obj, 504, page_data, sizeof(cache_data), UTILS_DMA) == UTILS_OK) {
+            test_fsm = 7;
+        }
+        else if (test_fsm == 7 && GD5F2GM7_DMA_ReceiveIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+            test_fsm = 8;
+        }
+        else if (test_fsm == 8) {
+            HAL_UART_Transmit(&huart1, page_data, sizeof(cache_data), HAL_MAX_DELAY);
+            HAL_Delay(500);
+        }
+
+
+
+
       //------------------------------本振ADF4252测试------------------------------
 
       //------------------------------2440------------------------------

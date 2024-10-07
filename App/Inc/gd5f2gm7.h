@@ -38,4 +38,31 @@ typedef struct {
     GD5F2GM7_DMA_FSM            _dma_fsm_state_receive;
 }GD5F2GM7_Info_Struct;
 
+//------------------------------需要放入中断回调函数中的函数------------------------------
+void GD5F2GM7_Transmit_IRQ_Handler(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi);
+void GD5F2GM7_Receive_IRQ_Hanlder(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi);
+//------------------------------需要放入中断回调函数中的函数------------------------------
+
+void GD5F2GM7_Init(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi, uint32_t cs_pin, GPIO_TypeDef* cs_pin_type);
+UTILS_Status GD5F2GM7_WriteEnable(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_WriteDisable(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_Get_Features(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint8_t reg_addr, uint8_t* rx_data);
+UTILS_Status GD5F2GM7_Set_Features(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint8_t reg_addr, uint8_t tx_data);
+UTILS_Status GD5F2GM7_PageRead_ToCache(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t addr);
+UTILS_Status GD5F2GM7_ReadFromCache(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* rx_data, uint32_t len, UTILS_CommunicationMode rx_mode);
+UTILS_Status GD5F2GM7_ReadID(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint8_t* rx_data);
+UTILS_Status GD5F2GM7_ReadParameterPage(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_ReadUID(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_ProgramLoad(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* tx_data, uint32_t len, UTILS_CommunicationMode tx_mode);
+UTILS_Status GD5F2GM7_ProgramExecute(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t page_addr);
+UTILS_Status GD5F2GM7_ProgramLoadRandomData(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* tx_data, uint32_t len, UTILS_CommunicationMode tx_mode);
+UTILS_Status GD52GM7_BlockErase(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t page_addr);
+UTILS_Status GD5F2GM7_Reset(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_EnablePowerOnReset(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_PowerOnReset(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_DeepPowerDown(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_ReleaseDeepPowerDown(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_DeviceIsBusy(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_DMA_TransmitIsBusy(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
+UTILS_Status GD5F2GM7_DMA_ReceiveIsBusy(GD5F2GM7_Info_Struct* gd5f2gm7_obj);
 #endif
