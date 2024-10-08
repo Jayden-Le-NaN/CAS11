@@ -419,6 +419,10 @@ UTILS_Status GD5F2GM7_Reset(GD5F2GM7_Info_Struct* gd5f2gm7_obj) {
     uint8_t command = GD5F2GM7_CMD_RESET;
     GD5F2GM7_Transmit_Receive_Start();
     UTILS_Status status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, &command, 1);
+    if (status == UTILS_OK) {
+        gd5f2gm7_obj->_dma_fsm_state_transmit = GD5F2GM7_DMA_Idle;
+        gd5f2gm7_obj->_dma_fsm_state_receive  = GD5F2GM7_DMA_Idle;
+    }
     GD5F2GM7_Transmit_Receive_Stop();
     return status;
 }
@@ -448,6 +452,10 @@ UTILS_Status GD5F2GM7_PowerOnReset(GD5F2GM7_Info_Struct* gd5f2gm7_obj) {
     uint8_t command = GD5F2GM7_CMD_POWER_ON_RESET;
     GD5F2GM7_Transmit_Receive_Start();
     UTILS_Status status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, &command, 1);
+    if (status == UTILS_OK) {
+        gd5f2gm7_obj->_dma_fsm_state_transmit = GD5F2GM7_DMA_Idle;
+        gd5f2gm7_obj->_dma_fsm_state_receive  = GD5F2GM7_DMA_Idle;
+    }
     GD5F2GM7_Transmit_Receive_Stop();
     return status;
 }
