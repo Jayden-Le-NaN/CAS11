@@ -18,8 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "gd5f2gm7.h"
-#include "stm32l4xx_hal_uart.h"
+#include "ad9833.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -40,17 +39,26 @@
 /* USER CODE BEGIN PM */
 GM5F2GM7XEXXG_Info_Struct gm5f2gm7xexxg_obj;
 GD5F2GM7_Info_Struct gd5f2gm7_obj;  
+PM004M_Info_Struct pm004m_obj;
+LTC5589_Info_Struct ltc5589_obj;
+AD9833_Info_Struct ad9833_obj;
+
 
 
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+DAC_HandleTypeDef hdac1;
+
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
+SPI_HandleTypeDef hspi3;
 DMA_HandleTypeDef hdma_spi1_rx;
 DMA_HandleTypeDef hdma_spi1_tx;
 DMA_HandleTypeDef hdma_spi2_rx;
 DMA_HandleTypeDef hdma_spi2_tx;
+DMA_HandleTypeDef hdma_spi3_rx;
+DMA_HandleTypeDef hdma_spi3_tx;
 
 UART_HandleTypeDef huart1;
 
@@ -58,16 +66,21 @@ UART_HandleTypeDef huart1;
 uint8_t buff[] = "Hello World\n";
 uint8_t tx_buff[] = "Transmit";
 uint8_t rx_buff[] = "Receive";
+
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-    // GM5F2GM7XEXXG_Transmit_IRQ_Handler(&gm5f2gm7xexxg_obj, hspi);
-    GD5F2GM7_Transmit_IRQ_Handler(&gd5f2gm7_obj, hspi);
-    // HAL_UART_Transmit(&huart1, tx_buff, sizeof(tx_buff), HAL_MAX_DELAY);
+    //------------------------------FLAH中断处理------------------------------
+    // GD5F2GM7_Transmit_IRQ_Handler(&gd5f2gm7_obj, hspi);
+    //------------------------------MRAM中断处理------------------------------
+    // PM004M_Transmit_IRQ_Handler(&pm004m_obj, hspi);
+    //------------------------------DDS中断处理------------------------------
+    AD9833_Transmit_IRQ_Handler(&ad9833_obj, hspi);
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
-    // GM5F2GM7XEXXG_Receive_IRQ_Handler(&gm5f2gm7xexxg_obj, hspi);
+    //------------------------------FLAH中断处理------------------------------
     GD5F2GM7_Receive_IRQ_Hanlder(&gd5f2gm7_obj, hspi);
-    // HAL_UART_Transmit(&huart1, rx_buff, sizeof(rx_buff), HAL_MAX_DELAY);
+    //------------------------------MRAM中断处理------------------------------
+    PM004M_Receive_IRQ_Handler(&pm004m_obj, hspi);
 }
 
 /* USER CODE END PV */
@@ -79,6 +92,8 @@ static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_SPI3_Init(void);
+static void MX_DAC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -121,21 +136,55 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
+  MX_SPI3_Init();
+  MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
+
+  //------------------------------MRAM驱动测试------------------------------
+  // PM004M_Init(&pm004m_obj, &hspi1, GPIO_PIN_9, GPIOB);
+  // PM004M_ModeRegisterWrite(&pm004m_obj, 0x0000, 0x80);
+  // PM004M_ModeRegisterRead(&pm004m_obj, 0x0000, uart_buff);
+    
   //------------------------------FLASH驱动测试------------------------------
-  uint8_t reg_status[256];
-  GD5F2GM7_Init(&gd5f2gm7_obj, &hspi1, GPIO_PIN_6, GPIOB);
-  GD5F2GM7_WriteEnable(&gd5f2gm7_obj);
-  GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xC0, reg_status);
-  HAL_UART_Transmit(&huart1, reg_status, 1, HAL_MAX_DELAY);
-
+  // uint8_t reg_status[256];
+  // GD5F2GM7_Init(&gd5f2gm7_obj, &hspi1, GPIO_PIN_6, GPIOB);
+  // GD5F2GM7_WriteEnable(&gd5f2gm7_obj);
+  // GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xC0, reg_status);
+  // HAL_UART_Transmit(&huart1, reg_status, 1, HAL_MAX_DELAY);
     
 
   //------------------------------本振ADF4252测试------------------------------
-  // ADF4252_Info_Struct adf4252_obj;
-  // ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
+  ADF4252_Info_Struct adf4252_obj;
+  ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
+  (&adf4252_obj)->_val_rf_n_divider  = 0x7B0000;                
+  (&adf4252_obj)->_val_rf_r_divider  = 0x108009;
+  (&adf4252_obj)->_val_rf_control    = 0x88C2;
+  (&adf4252_obj)->_val_master        = 0x7C3;
+  (&adf4252_obj)->_val_if_n_divider  = 0x40A864;
+  (&adf4252_obj)->_val_if_r_divider  = 0x195;
+  (&adf4252_obj)->_val_if_control    = 0xA6;
+  ADF4252_Write_All_Registers(&adf4252_obj);
+  HAL_Delay(1000);
+
+  //------------------------------生成DDS的直流电压------------------------------
+  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 470);
+  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+
+  //------------------------------LTC5589驱动测试------------------------------
+
+  /*
+  LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_0, GPIOB, GPIO_PIN_1, GPIOB);
+  LTC5589_Set_Frequency(&ltc5589_obj, 0x40);
+  */
+  
+  // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, 0);
+  // LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, 0x13);
+
+
+
+
   // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT为100
   // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION为0
   // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD为120
@@ -145,10 +194,6 @@ int main(void)
   // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_PD_POLARITY, ADF4252_STATUS_POSITIVE);
 
     
-  //------------------------------RFMD2081测试------------------------------
-  // RFMD2081_Init();
-  // RFMD2081_Device_Reset();
-  // RFMD2081_Device_Enable();
 
   //------------------------------LTC5589测试------------------------------
   // LTC5589_Info_Struct ltc5589_obj;
@@ -168,20 +213,106 @@ int main(void)
   // uint8_t rx_data[sizeof(tx_data)] = {0};
   // uint8_t command;
   // uint8_t packet[16];
+
+  //------------------------------AD9833测试------------------------------
+  AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA);
+  AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
+
+  uint32_t freq = 10000;
+  AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, 1, UTILS_LOOP);
+  AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint8_t test_fsm = 0;
-  uint8_t page_data[256];
-  uint8_t cache_data[] = "JaydenLee";
-  uint8_t mask_data[] = "Hello World";
+  uint8_t step = 10;
+  uint8_t i = 0;
+  uint8_t i_dc_offset = 0x50;
+  uint8_t ltc_freq = 0x3d; uint8_t packet[256];
+  int8_t gain = -19;
+  uint8_t uart_buff[256];
+  uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+
+    // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
+    // LTC5589_Read_Register(&ltc5589_obj, 0x01, uart_buff);
+
+
+
+    uint8_t rx_buff[256];
+
+    // if (i == 0)
+    //     AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
+    // else if (i == 1)
+    //     AD9833_SetWave(&ad9833_obj, AD9833_WAVE_DAC_DATA_MSB);
+    // else if (i == 2)
+    //     AD9833_SetWave(&ad9833_obj, AD9833_WAVE_DAC_DATA_MSB_HALF);
+    // else 
+    //     AD9833_SetWave(&ad9833_obj, AD9833_WAVE_UP_DOWN_RAMP);
+    // i = (i + 1) % 4;
+
+
+    // LTC5589_Set_Frequency(&ltc5589_obj, ltc_freq);
+    // LTC5589_Read_Register(&ltc5589_obj, 0x00, rx_buff);
+
+    /*
+    LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
+
+    do {
+        LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, i_dc_offset);
+        i_dc_offset += 5;
+        if (i_dc_offset >= 250) {
+            i_dc_offset = 1;
+            break;
+        }
+        
+        packet[0] = char_map[(i_dc_offset & 0xF0) >> 4];
+        packet[1] = char_map[(i_dc_offset & 0x0F)];
+        packet[2] = ' ';
+        // 扫增益
+        packet[3] = '-';
+        packet[4] = char_map[((-gain) & 0xF0) >> 4];
+        packet[5] = char_map[((-gain) & 0x0F)];
+        packet[6] = '\n';
+        // 扫频
+        // packet[3] = char_map[(ltc_freq & 0xF0) >> 4];
+        // packet[4] = char_map[(ltc_freq & 0x0F)];
+        // packet[5] = char_map[(rx_buff[0] & 0xF0) >> 4];
+        // packet[6] = char_map[(rx_buff[0] & 0x0F)];
+        // packet[7] = '\n';
+        HAL_UART_Transmit(&huart1, packet, 7, HAL_MAX_DELAY);
+        HAL_Delay(1000);
+    } while(1);
+    gain += 1;
+    if (gain == 1)
+        gain = -19;
+
+
+    // ltc_freq += 1;
+    // if (ltc_freq == 0x43)
+    //     ltc_freq = 0x3d;
+    */
+
+    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_NO_CHANGE, &freq, sizeof(freq), UTILS_LOOP);
+    // AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
+    HAL_Delay(1000);
+    
+
+
+
+      //------------------------------MRAM驱动测试------------------------------
+        // HAL_UART_Transmit(&huart1, uart_buff, 1, HAL_MAX_DELAY);
+        // HAL_Delay(500);
+
+
         //------------------------------FLASH驱动测试------------------------------
         // GD5F2GM7_WriteEnable(&gd5f2gm7_obj);
         // GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xC0, &reg_status);
@@ -192,36 +323,36 @@ int main(void)
         // HAL_UART_Transmit(&huart1, &reg_status, 1, HAL_MAX_DELAY);
         // HAL_Delay(500);
 
-        if (test_fsm == 0 && GD5F2GM7_ProgramLoad(&gd5f2gm7_obj, 504, cache_data, sizeof(cache_data), UTILS_DMA) == UTILS_OK) {
-            test_fsm = 1;
-        }
-        else if (test_fsm == 1 && GD5F2GM7_DMA_TransmitIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
-            if (GD5F2GM7_ProgramExecute(&gd5f2gm7_obj, 2004) == UTILS_OK)
-                test_fsm = 2;
-        }
-        else if (test_fsm == 2 && GD5F2GM7_DeviceIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
-            test_fsm = 3;
-        }
-        else if (test_fsm == 3 && GD5F2GM7_ProgramLoad(&gd5f2gm7_obj, 504, mask_data, sizeof(mask_data), UTILS_DMA) == UTILS_OK) {
-            test_fsm = 4;
-        }
-        else if (test_fsm == 1 && GD5F2GM7_DMA_TransmitIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
-            if (GD5F2GM7_PageRead_ToCache(&gd5f2gm7_obj, 2004) == UTILS_OK)
-                test_fsm = 5;
-        }
-        else if (test_fsm == 5 && GD5F2GM7_DeviceIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
-            test_fsm = 6;
-        }
-        else if (test_fsm == 6 && GD5F2GM7_ReadFromCache(&gd5f2gm7_obj, 504, page_data, sizeof(cache_data), UTILS_DMA) == UTILS_OK) {
-            test_fsm = 7;
-        }
-        else if (test_fsm == 7 && GD5F2GM7_DMA_ReceiveIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
-            test_fsm = 8;
-        }
-        else if (test_fsm == 8) {
-            HAL_UART_Transmit(&huart1, page_data, sizeof(cache_data), HAL_MAX_DELAY);
-            HAL_Delay(500);
-        }
+        // if (test_fsm == 0 && GD5F2GM7_ProgramLoad(&gd5f2gm7_obj, 504, cache_data, sizeof(cache_data), UTILS_DMA) == UTILS_OK) {
+        //     test_fsm = 1;
+        // }
+        // else if (test_fsm == 1 && GD5F2GM7_DMA_TransmitIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+        //     if (GD5F2GM7_ProgramExecute(&gd5f2gm7_obj, 2004) == UTILS_OK)
+        //         test_fsm = 2;
+        // }
+        // else if (test_fsm == 2 && GD5F2GM7_DeviceIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+        //     test_fsm = 3;
+        // }
+        // else if (test_fsm == 3 && GD5F2GM7_ProgramLoad(&gd5f2gm7_obj, 504, mask_data, sizeof(mask_data), UTILS_DMA) == UTILS_OK) {
+        //     test_fsm = 4;
+        // }
+        // else if (test_fsm == 1 && GD5F2GM7_DMA_TransmitIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+        //     if (GD5F2GM7_PageRead_ToCache(&gd5f2gm7_obj, 2004) == UTILS_OK)
+        //         test_fsm = 5;
+        // }
+        // else if (test_fsm == 5 && GD5F2GM7_DeviceIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+        //     test_fsm = 6;
+        // }
+        // else if (test_fsm == 6 && GD5F2GM7_ReadFromCache(&gd5f2gm7_obj, 504, page_data, sizeof(cache_data), UTILS_DMA) == UTILS_OK) {
+        //     test_fsm = 7;
+        // }
+        // else if (test_fsm == 7 && GD5F2GM7_DMA_ReceiveIsBusy(&gd5f2gm7_obj) == UTILS_OK) {
+        //     test_fsm = 8;
+        // }
+        // else if (test_fsm == 8) {
+        //     HAL_UART_Transmit(&huart1, page_data, sizeof(cache_data), HAL_MAX_DELAY);
+        //     HAL_Delay(500);
+        // }
 
 
 
@@ -266,118 +397,11 @@ int main(void)
 
 
 
-
-
       // HAL_SPI_Transmit_DMA(&hspi2, write_data, sizeof(write_data));
       // UTILS_Status status = GM5F2GM7XEXXG_Program(&gm5f2gm7xexxg_obj, 0xFFFF, 0x00, write_data, sizeof(write_data));
       // UTILS_Status status = GM5F2GM7XEXXG_ReadDataFromCache(&gm5f2gm7xexxg_obj, 0x1FF, 0x00, rx_data, sizeof(rx_data));
 
-        // RFMD2081_Read(RFMD2081_REG_PLL_CTRL);
-      // UTILS_Status status = GM5F2GM7XEXXG_Program(&gm5f2gm7xexxg_obj, 0x1FF, 0x00, tx_data, sizeof(tx_data));
-      // if (status == UTILS_ERROR) {
-      //     uint8_t buff[] = "Error";
-      //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
-      // }
-      // else if (status == UTILS_WORKING) {
-      //     uint8_t buff[] = "Working";
-      //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
-      // }
-      // else {
-      //     uint8_t buff[] = "OK";
-      //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
-      // }
-
-      // //------------------------------Program Load------------------------------
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-      // command = 0x02;
-      // packet[0] = command;
-      // packet[1] = 0;
-      // packet[2] = 0;
-      // HAL_SPI_Transmit(&hspi1, packet, 3, HAL_MAX_DELAY);
-      // HAL_SPI_Transmit(&hspi1, write_data, sizeof(write_data), HAL_MAX_DELAY);
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-      // HAL_Delay(1);
-      // //---------GM5F2GM7XEXXG_Get_FeaturesritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-      // command = 0x06;
-      // packet[0] = command;
-      // HAL_SPI_Transmit(&hspi1, packet, 1, HAL_MAX_DELAY);
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-      // HAL_Delay(1);
-      // //------------------------------Write Enable------------------------------
-
-      // //------------------------------Program Execute------------------------------
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-      // command = 0x10;
-      // packet[0] GM5F2GM7XEXXG_Get_Features= command;
-      // packet[1] = 0;
-      // packet[2] = 0xFF;
-      // packet[3] = 0xFF;
-      // HAL_SPI_Transmit(&hspi1, packet, 4, HAL_MAX_DELAY);
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-      // HAL_Delay(2);
-      // //------------------------------Program Execute------------------------------
-
-      // //------------------------------Program Load------------------------------
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-      // command = 0x02;
-      // packet[0] = command;
-      // packet[1] = 0;
-      // packet[2] = 0;
-      // HAL_SPI_Transmit(&hspi1, packet, 3, HAL_MAX_DELAY);
-      // HAL_SPI_Transmit(&hspi1, rev_data, sizeof(rev_data), HAL_MAX_DELAY);
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-      // HAL_Delay(1);
-      // //------------------------------Program Load------------------------------
-
-      // //------------------------------Read Page------------------------------
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-      // command = 0x13;
-      // packet[0] = command;
-      // packet[1] = 0;
-      // packet[2] = 0x01;
-      // packet[3] = 0xFF;
-      // HAL_SPI_Transmit(&hspi1, packet, 4, HAL_MAX_DELAY);
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-      // HAL_Delay(2);
-      // //------------------------------Read Page------------------------------
-      // 
-      // //------------------------------Read Cache------------------------------
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-      // command = 0x03;
-      // packet[0] = command;
-      // packet[1] = 0;
-      // packet[2] = 0;
-      // packet[3] = 0;
-      // HAL_SPI_Transmit(&hspi1, packet, 3, HAL_MAX_DELAY);
-      // HAL_SPI_Receive(&hspi1, rx_data, sizeof(rx_data), HAL_MAX_DELAY);
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-      // HAL_UART_Transmit(&huart1, rx_data, sizeof(rx_data), HAL_MAX_DELAY);
-      // //------------------------------Read Cache------------------------------
-
-      //------------------------------Read State------------------------------
-        // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
-        // command = 0x0F;
-        // packet[0] = command;
-        // packet[1] = 0xA0;
-        // HAL_SPI_Transmit(&hspi1, packet, 2, HAL_MAX_DELAY);
-        // HAL_SPI_Receive(&hspi1, rx_data, 1, HAL_MAX_DELAY);
-        // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
-        // HAL_UART_Transmit(&huart1, rx_data, 1, HAL_MAX_DELAY);
-      //------------------------------Read State------------------------------
-      
-      // if (status == UTILS_WORKING) {
-      //     uint8_t buff[] = "Working";
-      //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
-      // }
-      // else if (status == UTILS_ERROR) {
-      //     uint8_t buff[] = "Error";
-      //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
-      // }
-      // else if (status == UTILS_OK) {
-      //     uint8_t buff[] = "Ok";
-      //     HAL_UART_Transmit(&huart1, buff, sizeof(buff), HAL_MAX_DELAY);
-      // }
-
+        // RFMD2081_Read(RFMD2081_REG_XO);
   }
   /* USER CODE END 3 */
 }
@@ -428,6 +452,49 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief DAC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_DAC1_Init(void)
+{
+
+  /* USER CODE BEGIN DAC1_Init 0 */
+
+  /* USER CODE END DAC1_Init 0 */
+
+  DAC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN DAC1_Init 1 */
+
+  /* USER CODE END DAC1_Init 1 */
+
+  /** DAC Initialization
+  */
+  hdac1.Instance = DAC1;
+  if (HAL_DAC_Init(&hdac1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** DAC channel OUT1 config
+  */
+  sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
+  sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+  if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN DAC1_Init 2 */
+
+  /* USER CODE END DAC1_Init 2 */
+
 }
 
 /**
@@ -511,6 +578,46 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+  * @brief SPI3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI3_Init(void)
+{
+
+  /* USER CODE BEGIN SPI3_Init 0 */
+
+  /* USER CODE END SPI3_Init 0 */
+
+  /* USER CODE BEGIN SPI3_Init 1 */
+
+  /* USER CODE END SPI3_Init 1 */
+  /* SPI3 parameter configuration*/
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 7;
+  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI3_Init 2 */
+
+  /* USER CODE END SPI3_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -553,6 +660,7 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Channel2_IRQn interrupt configuration */
@@ -567,6 +675,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
+  /* DMA2_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel1_IRQn);
+  /* DMA2_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
 
 }
 
@@ -583,8 +697,9 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_SET);

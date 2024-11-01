@@ -27,6 +27,7 @@ typedef struct {
 }LTC5589_Info_Struct;
 
 void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint32_t cs_pin, GPIO_TypeDef* cs_pin_type, uint32_t ttck_pin, GPIO_TypeDef* ttck_pin_type);
+UTILS_Status LTC5589_Read_Register(LTC5589_Info_Struct* ltc5589_obj, uint8_t reg_addr, uint8_t* rx_data);
 UTILS_Status LTC5589_Set_Frequency(LTC5589_Info_Struct* ltc5589_obj, uint8_t freq);
 UTILS_Status LTC5589_Set_DigitalGain_Coarse(LTC5589_Info_Struct* ltc5589_obj, int8_t gain);
 UTILS_Status LTC5589_Set_DigitalGain_Fine(LTC5589_Info_Struct* ltc5589_obj, int8_t gain);

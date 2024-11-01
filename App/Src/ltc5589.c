@@ -44,7 +44,7 @@ static UTILS_Status LTC5589_Write_Register(LTC5589_Info_Struct* ltc5589_obj, uin
  * @return              UTILS_OK    : 正常
  *                      UTILS_ERROR : 可能是总线正在被占用等一系列问题
  */
-static UTILS_Status LTC5589_Read_Register(LTC5589_Info_Struct* ltc5589_obj, uint8_t reg_addr, uint8_t* rx_data) {
+UTILS_Status LTC5589_Read_Register(LTC5589_Info_Struct* ltc5589_obj, uint8_t reg_addr, uint8_t* rx_data) {
     // 数据的发送和读取不适用DMA
     UTILS_Status status = UTILS_OK;
     uint8_t packet[1];
@@ -233,7 +233,7 @@ UTILS_Status LTC5589_Set_DigitalGain_Fine_Mode(LTC5589_Info_Struct* ltc5589_obj,
  * @param offset        需要设置的偏置的值
  * @return              UTILS_OK    : 正常
  *                      UTILS_ERROR : 可能是总线正在被占用等一系列问题
- * @note                设置I通道的直流偏置的寄存器
+ * @note                设置I/Q通道的直流偏置的寄存器
  */
 UTILS_Status LTC5589_Set_DCOffset(LTC5589_Info_Struct* ltc5589_obj, LTC5589_CHANNEL channel, uint8_t offset) {
     if (offset == 0)

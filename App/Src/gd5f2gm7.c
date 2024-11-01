@@ -301,7 +301,7 @@ UTILS_Status GD5F2GM7_ReadUID(GD5F2GM7_Info_Struct* gd5f2gm7_obj) {
  *                          UTILS_LOOP: 使用阻塞的方式接收
  *                          UTILS_DMA : 使用DMA的方式接收
  * @return              UTILS_OK    : 正常
- *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输
+ *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输或者是传输模式选择错误
  */
 UTILS_Status GD5F2GM7_ProgramLoad(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* tx_data, uint32_t len, UTILS_CommunicationMode tx_mode) {
     uint8_t packet[3];
