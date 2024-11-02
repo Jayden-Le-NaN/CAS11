@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "ad9833.h"
+#include "ltc5589.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -41,7 +42,7 @@ GM5F2GM7XEXXG_Info_Struct gm5f2gm7xexxg_obj;
 GD5F2GM7_Info_Struct gd5f2gm7_obj;  
 PM004M_Info_Struct pm004m_obj;
 LTC5589_Info_Struct ltc5589_obj;
-AD9833_Info_Struct ad9833_obj;
+// AD9833_Info_Struct ad9833_obj;
 
 
 
@@ -73,7 +74,7 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
     //------------------------------MRAM中断处理------------------------------
     // PM004M_Transmit_IRQ_Handler(&pm004m_obj, hspi);
     //------------------------------DDS中断处理------------------------------
-    AD9833_Transmit_IRQ_Handler(&ad9833_obj, hspi);
+    // AD9833_Transmit_IRQ_Handler(&ad9833_obj, hspi);
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
@@ -174,10 +175,8 @@ int main(void)
 
   //------------------------------LTC5589驱动测试------------------------------
 
-  /*
   LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_0, GPIOB, GPIO_PIN_1, GPIOB);
-  LTC5589_Set_Frequency(&ltc5589_obj, 0x40);
-  */
+  // LTC5589_Set_Frequency(&ltc5589_obj, 0x40);
   
   // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, 0);
   // LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, 0x13);
@@ -215,12 +214,13 @@ int main(void)
   // uint8_t packet[16];
 
   //------------------------------AD9833测试------------------------------
-  AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA);
-  AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
+  // AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA);
+  // AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
+  AD9833_Init(&hspi3);
 
-  uint32_t freq = 10000;
-  AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, 1, UTILS_LOOP);
-  AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
+  // uint32_t freq = 10000;
+  // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, 1, UTILS_LOOP);
+  // AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
 
 
   /* USER CODE END 2 */
@@ -234,6 +234,8 @@ int main(void)
   int8_t gain = -19;
   uint8_t uart_buff[256];
   uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+  uint8_t ratio = 1;
+
 
   while (1)
   {
@@ -246,8 +248,10 @@ int main(void)
     // LTC5589_Read_Register(&ltc5589_obj, 0x01, uart_buff);
 
 
+    AD9833_Setup(AD9833_REG_FREQ0, 1000.0, AD9833_REG_PHASE0, 1024, AD9833_OUT_SINUS);
+    HAL_Delay(1000);
 
-    uint8_t rx_buff[256];
+    // uint8_t rx_buff[256];
 
     // if (i == 0)
     //     AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
@@ -260,22 +264,45 @@ int main(void)
     // i = (i + 1) % 4;
 
 
+    //------------------------------LTC5589测试------------------------------
     // LTC5589_Set_Frequency(&ltc5589_obj, ltc_freq);
     // LTC5589_Read_Register(&ltc5589_obj, 0x00, rx_buff);
 
+    // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
+
     /*
-    LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
+    LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, i_dc_offset);
+    packet[0] = char_map[(i_dc_offset & 0xF0) >> 4];
+    packet[1] = char_map[(i_dc_offset & 0x0F)];
+    packet[2] = '\n';
+    i_dc_offset += 5;
+    if (i_dc_offset >= 250) {
+        i_dc_offset = 1;
+    }
+    HAL_UART_Transmit(&huart1, packet, 3, HAL_MAX_DELAY);
+    HAL_Delay(1000);
+    */
+
+    /*
+    LTC5589_Set_IQ_GainRatio(&ltc5589_obj, ratio);
 
     do {
         LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, i_dc_offset);
+        packet[0] = char_map[(i_dc_offset & 0xF0) >> 4];
+        packet[1] = char_map[(i_dc_offset & 0x0F)];
+        // packet[2] = '\n';
+        packet[2] = ' ';
+        packet[3] = char_map[(ratio & 0xF0) >> 4];
+        packet[4] = char_map[(ratio & 0x0F)];
+        packet[5] = '\n';
+        HAL_UART_Transmit(&huart1, packet, 6, HAL_MAX_DELAY);
+
         i_dc_offset += 5;
         if (i_dc_offset >= 250) {
             i_dc_offset = 1;
             break;
         }
         
-        packet[0] = char_map[(i_dc_offset & 0xF0) >> 4];
-        packet[1] = char_map[(i_dc_offset & 0x0F)];
         packet[2] = ' ';
         // 扫增益
         packet[3] = '-';
@@ -288,23 +315,24 @@ int main(void)
         // packet[5] = char_map[(rx_buff[0] & 0xF0) >> 4];
         // packet[6] = char_map[(rx_buff[0] & 0x0F)];
         // packet[7] = '\n';
-        HAL_UART_Transmit(&huart1, packet, 7, HAL_MAX_DELAY);
         HAL_Delay(1000);
     } while(1);
-    gain += 1;
-    if (gain == 1)
-        gain = -19;
+
+    ratio += 5;
+    if (ratio >= 250)
+        ratio = 1;
 
 
     // ltc_freq += 1;
     // if (ltc_freq == 0x43)
     //     ltc_freq = 0x3d;
-    */
 
-    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_NO_CHANGE, &freq, sizeof(freq), UTILS_LOOP);
+    // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_NO_CHANGE, &freq, sizeof(freq), UTILS_LOOP);
     // AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
     HAL_Delay(1000);
-    
+    */
+
+    //------------------------------LTC5589测试------------------------------
 
 
 

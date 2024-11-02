@@ -250,6 +250,20 @@ UTILS_Status LTC5589_Set_DCOffset(LTC5589_Info_Struct* ltc5589_obj, LTC5589_CHAN
 }
 
 /*
+ * @brief               设置I/Q增益的比值
+ * @param ltc5589_obj   ltc5589 指定信息
+ * @param ratio         I/Q增益比值
+ * @return              UTILS_OK    : 正常
+ *                      UTILS_ERROR : 可能是总线正在被占用等一系列问题
+ * @note                I/Q增益比值的寄存器为 0x04
+ */
+UTILS_Status LTC5589_Set_IQ_GainRatio(LTC5589_Info_Struct* ltc5589_obj, uint8_t ratio) {
+    UTILS_Status status = UTILS_OK;
+    status = LTC5589_Write_Register(ltc5589_obj, 0x04, ratio);
+    return status;
+}
+
+/*
  * @brief               设置相位差
  * @param ltc5589_obj   ltc5589 指定信息
  * @param phi           需要设置的偏移角度值

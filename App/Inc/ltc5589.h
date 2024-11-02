@@ -32,6 +32,7 @@ UTILS_Status LTC5589_Set_Frequency(LTC5589_Info_Struct* ltc5589_obj, uint8_t fre
 UTILS_Status LTC5589_Set_DigitalGain_Coarse(LTC5589_Info_Struct* ltc5589_obj, int8_t gain);
 UTILS_Status LTC5589_Set_DigitalGain_Fine(LTC5589_Info_Struct* ltc5589_obj, int8_t gain);
 UTILS_Status LTC5589_Set_DigitalGain_Fine_Mode(LTC5589_Info_Struct* ltc5589_obj, LTC5589_DIGITAL_GAIN_FINE_MODE mode);
+UTILS_Status LTC5589_Set_IQ_GainRatio(LTC5589_Info_Struct* ltc5589_obj, uint8_t ratio);
 UTILS_Status LTC5589_Set_DCOffset(LTC5589_Info_Struct* ltc5589_obj, LTC5589_CHANNEL channel, uint8_t offset);
 UTILS_Status LTC5589_Set_Phase(LTC5589_Info_Struct* ltc5589_obj, double phi);
 UTILS_Status LTC5589_Q_Channel_Enable(LTC5589_Info_Struct* ltc5589_obj);
