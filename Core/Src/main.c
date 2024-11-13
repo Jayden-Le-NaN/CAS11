@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "ad9833.h"
-#include "ltc5589.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -42,7 +41,7 @@ GM5F2GM7XEXXG_Info_Struct gm5f2gm7xexxg_obj;
 GD5F2GM7_Info_Struct gd5f2gm7_obj;  
 PM004M_Info_Struct pm004m_obj;
 LTC5589_Info_Struct ltc5589_obj;
-// AD9833_Info_Struct ad9833_obj;
+AD9833_Info_Struct ad9833_obj;
 
 
 
@@ -74,7 +73,7 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
     //------------------------------MRAM中断处理------------------------------
     // PM004M_Transmit_IRQ_Handler(&pm004m_obj, hspi);
     //------------------------------DDS中断处理------------------------------
-    // AD9833_Transmit_IRQ_Handler(&ad9833_obj, hspi);
+    AD9833_Transmit_IRQ_Handler(&ad9833_obj, hspi);
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
@@ -175,7 +174,7 @@ int main(void)
 
   //------------------------------LTC5589驱动测试------------------------------
 
-  LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_0, GPIOB, GPIO_PIN_1, GPIOB);
+  // LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_0, GPIOB, GPIO_PIN_1, GPIOB);
   // LTC5589_Set_Frequency(&ltc5589_obj, 0x40);
   
   // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, 0);
@@ -214,14 +213,17 @@ int main(void)
   // uint8_t packet[16];
 
   //------------------------------AD9833测试------------------------------
-  // AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA);
-  // AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
-  AD9833_Init(&hspi3);
+  AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA, 25000000);
+  AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
 
-  // uint32_t freq = 10000;
-  // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, 1, UTILS_LOOP);
-  // AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
+  uint32_t freq = 1000;
+  uint32_t freq_list[] = {1000, 10000, 100000, 10000};
+  // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
+  AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
+  // AD9833_SetWave(&ad9833_obj, AD9833_WAVE_UP_DOWN_RAMP);
 
+    // 01_001000
+    // 00110100
 
   /* USER CODE END 2 */
 
@@ -236,7 +238,7 @@ int main(void)
   uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
   uint8_t ratio = 1;
 
-
+    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入一次,B28位和RESET位为1
   while (1)
   {
     /* USER CODE END WHILE */
@@ -247,8 +249,13 @@ int main(void)
     // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
     // LTC5589_Read_Register(&ltc5589_obj, 0x01, uart_buff);
 
-
-    AD9833_Setup(AD9833_REG_FREQ0, 1000.0, AD9833_REG_PHASE0, 1024, AD9833_OUT_SINUS);
+    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[0], 1, UTILS_DMA);
+    HAL_Delay(1000);
+    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[1], 1, UTILS_DMA);
+    HAL_Delay(1000);
+    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[2], 1, UTILS_DMA);
+    HAL_Delay(1000);
+    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[3], 1, UTILS_DMA);
     HAL_Delay(1000);
 
     // uint8_t rx_buff[256];
@@ -625,8 +632,8 @@ static void MX_SPI3_Init(void)
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
   hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -634,7 +641,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi3.Init.CRCPolynomial = 7;
   hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
   if (HAL_SPI_Init(&hspi3) != HAL_OK)
   {
     Error_Handler();
