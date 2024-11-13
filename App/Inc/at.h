@@ -66,6 +66,55 @@ typedef enum {
     AT_STATE_EXEC,                                                          // 执行状态
 }at_work_state;
 
+//------------------------------AT作业项------------------------------
+typedef struct {
+    uint32_t    state : 3;                                                  // 作业类型
+    uint32_t    type  : 3;                          
+    uint32_t    abort : 1;
+    void*       param;                                                      // 通用参数
+    void*       info;                                                       // 通用信息指针
+    struct list_head node;                                                  // 链表节点
+}at_item_t;
+
+//------------------------------AT管理器------------------------------
+typedef struct at_obj {
+    at_adapter_t            adap;                                           // at接口适配器
+    at_env_t                env;                                            // 作业运行环境
+    at_item_t               items[32];                                      // 最大容纳32个作业
+    at_item_t               *cursor;                                        // 当前作业项
+    struct list_head        ls_ready, ls_idle;                              // 就绪, 空闲作业链表
+    uint32_t                timer;                                          // 计时器
+    uint32_t                urc_timer;                                      // urc接收计时器
+    at_return               ret;
+    uint16_t                urc_cnt, recv_cnt;                              // urc接收计数, 命令响应接收计数器
+    uint8_t                 suspend : 1;
+}at_obj_t;
+
+typedef struct {
+    void (*sender)(at_env_t *e);                                            // 自定义发送器
+    const char* mathcer;                                                    // 匹配字符串
+    at_callback_t cb;                                                       // 响应处理
+    uint8_t retry;                                                          // 错误重试次数
+    uint16_t timeout;                                                       // 最大超时时间
+}at_cmd_t;
+
+void at_obj_init(at_obj_t* at, const at_adapter_t*);
+
+bool at_send_singleline(at_obj_t* at, at_callback_t cb, const char* singlling);
+
+bool at_send_multiling(at_obj_t* at, at_callback_t cb, const char** multiline);
+
+bool at_do_cmd(at_obj_t* at, void* params, const at_cmd_t* cmd);
+
+void at_item_abort(at_item_t* it);                                          // 终止当前作业
+
+bool at_obj_busy(at_obj_t* at);                                             // 忙判断
+
+void at_suspend(at_obj_t* at);
+
+void at_resume(at_obj_t* at);
+
+void at_poll_taks(at_obj_t* at);
 
 
 #endif
