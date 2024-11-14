@@ -7,7 +7,11 @@
 
 #define AT_MAX_CMD_LEN          128
 
+//------------------------------获取系统嘀嗒定时器------------------------------
+#define AT_GET_TICK()           HAL_GetTick()
+
 struct at_obj;                                                              // at结构体的前向声明
+
 
 //------------------------------urc处理项------------------------------
 typedef struct {
@@ -24,6 +28,7 @@ typedef struct {
     uint8_t*    urc_buf;                                                    // urc接收缓冲区
     uint8_t*    recv_buf;                                                   // 数据缓冲区
     uint16_t    urc_tbl_count;                                              // urc表项个数
+    uint16_t    urc_buf_size;                                               // urc缓冲区大小
     uint16_t    recv_buf_size;                                              // 接收缓冲区大小
 }at_adapter_t;
 
@@ -34,8 +39,8 @@ typedef struct {
     void        (*reset_timer)(struct at_obj* at);                          // 重置时间
     bool        (*is_timeout)(struct at_obj* at, uint32_t ms);              // 时间跨度判断
     void        (*printf)(struct at_obj* at, const char* fmt, ...);         // printf 函数
-    uint8_t*    (*find)(struct at_obj* at, const uint8_t* expect);          // 查找函数
-    uint8_t*    (*recvbuf)(struct at_obj* at);                              // 指向接收缓冲区
+    char*       (*find)(struct at_obj* at, const char* expect);          // 查找函数
+    char*       (*recvbuf)(struct at_obj* at);                              // 指向接收缓冲区
     uint32_t    (*recvlen)(struct at_obj* at);                              // 缓冲区总长度
     void        (*recvclr)(struct at_obj* at);                              // 清空接收缓冲区
     bool        (*abort)(struct at_obj* at);                                // 终止执行
@@ -52,7 +57,7 @@ typedef enum {
 //------------------------------AT响应------------------------------
 typedef struct {
     void*       param;                                                      
-    uint8_t*    recvbuf;                                                    // 接收缓冲区
+    char*       recvbuf;                                                    // 接收缓冲区
     uint16_t    recvcnt;                                                    // 接收数据长度
     at_return   ret;                                                        // AT 执行结果
 }at_respose_t;
@@ -102,7 +107,7 @@ void at_obj_init(at_obj_t* at, const at_adapter_t*);
 
 bool at_send_singleline(at_obj_t* at, at_callback_t cb, const char* singlling);
 
-bool at_send_multiling(at_obj_t* at, at_callback_t cb, const char** multiline);
+bool at_send_multiline(at_obj_t* at, at_callback_t cb, const char** multiline);
 
 bool at_do_cmd(at_obj_t* at, void* params, const at_cmd_t* cmd);
 

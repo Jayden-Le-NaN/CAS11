@@ -232,4 +232,12 @@ int32_t UTILS_Log2(uint32_t value) {
     return 31 - __builtin_clz(value);
 }
 
+/*
+ * @brief               获取系统嘀嗒定时器的值
+ * @return              系统嘀嗒定时器的值
+ */
+uint32_t UTILS_GetSysTick(void) {
+    return SysTick->VAL;
+}
+
 

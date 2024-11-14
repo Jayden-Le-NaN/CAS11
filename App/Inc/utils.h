@@ -71,6 +71,8 @@ UTILS_Status UTILS_WriteBit_Zone_32bit(uint32_t* data, uint8_t msb, uint8_t lsb,
 int32_t UTILS_Ceil(double data);
 int32_t UTILS_Log2(uint32_t value);
 
+uint32_t UTILS_GetSysTick(void);
+
 
 void printf(const char *format, ...);
 
