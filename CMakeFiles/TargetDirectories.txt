@@ -1,5 +1,0 @@
-/home/jayden-le/ChipCode/stm32/2024/082901_CAS11/CMakeFiles/082901_CAS11.dir
-/home/jayden-le/ChipCode/stm32/2024/082901_CAS11/CMakeFiles/edit_cache.dir
-/home/jayden-le/ChipCode/stm32/2024/082901_CAS11/CMakeFiles/rebuild_cache.dir
-/home/jayden-le/ChipCode/stm32/2024/082901_CAS11/cmake/stm32cubemx/CMakeFiles/edit_cache.dir
-/home/jayden-le/ChipCode/stm32/2024/082901_CAS11/cmake/stm32cubemx/CMakeFiles/rebuild_cache.dir
