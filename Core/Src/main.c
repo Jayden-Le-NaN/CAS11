@@ -43,6 +43,25 @@ PM004M_Info_Struct pm004m_obj;
 LTC5589_Info_Struct ltc5589_obj;
 AD9833_Info_Struct ad9833_obj;
 
+static at_obj_t at;
+
+void uart_test_1_handler(char* recvbuf, int32_t size);
+void uart_test_2_handler(char* recvbuf, int32_t size);
+void uart_test_3_handler(char* recvbuf, int32_t size);
+
+static uint8_t uart_recvbuf[256];
+static uint8_t uart_urcbuf[256];
+
+// urc 表
+static const urc_item_t urc_table[] = {
+    "test1", uart_test_1_handler,
+    "test2", uart_test_2_handler,
+    "test3", uart_test_3_handler,
+};
+
+static const at_adapter_t at_adapter = {
+    // .write = 
+};
 
 
 /* USER CODE END PM */

@@ -15,8 +15,9 @@ struct at_obj;                                                              // a
 
 //------------------------------urc处理项------------------------------
 typedef struct {
+    void* obj_t;                                                            // 对象类型
     const char *prefix;                                                     // 需要匹配的头部
-    void (*handler)(char* recvbuf, int32_t len);                            // 执行函数
+    void (*handler)(void* obj_t, char* recvbuf, int32_t len);               // 执行函数
 }urc_item_t;
 
 //------------------------------AT接口适配器------------------------------
