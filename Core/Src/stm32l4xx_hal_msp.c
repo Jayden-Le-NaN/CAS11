@@ -43,7 +43,8 @@ extern DMA_HandleTypeDef hdma_spi3_tx;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN Define */
-
+#define USE_TIM_DMA                     1
+#define NO_USE_TIM_DMA                  0
 /* USER CODE END Define */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,7 +54,7 @@ extern DMA_HandleTypeDef hdma_spi3_tx;
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+extern uint8_t ad9833_tim_dma_flag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -183,8 +184,8 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 
     /* SPI1 DMA Init */
     /* SPI1_RX Init */
-    hdma_spi1_rx.Instance = DMA1_Channel2;
-    hdma_spi1_rx.Init.Request = DMA_REQUEST_1;
+    hdma_spi1_rx.Instance = DMA2_Channel3;
+    hdma_spi1_rx.Init.Request = DMA_REQUEST_4;
     hdma_spi1_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
     hdma_spi1_rx.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_spi1_rx.Init.MemInc = DMA_MINC_ENABLE;
@@ -226,7 +227,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
   else if(hspi->Instance==SPI2)
   {
   /* USER CODE BEGIN SPI2_MspInit 0 */
-
+    if(ad9833_tim_dma_flag == NO_USE_TIM_DMA){
   /* USER CODE END SPI2_MspInit 0 */
     /* Peripheral clock enable */
     __HAL_RCC_SPI2_CLK_ENABLE();
@@ -283,7 +284,41 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     HAL_NVIC_SetPriority(SPI2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(SPI2_IRQn);
   /* USER CODE BEGIN SPI2_MspInit 1 */
+    }else if(ad9833_tim_dma_flag == USE_TIM_DMA){
+      __HAL_RCC_SPI2_CLK_ENABLE();
 
+      __HAL_RCC_GPIOB_CLK_ENABLE();
+      /**SPI2 GPIO Configuration
+      PB13     ------> SPI2_SCK
+      PB14     ------> SPI2_MISO
+      PB15     ------> SPI2_MOSI
+      */
+      GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+      GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+      GPIO_InitStruct.Pull = GPIO_NOPULL;
+      GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+      GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
+      HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+      /* SPI2_TX Init */
+      hdma_spi2_tx.Instance = DMA1_Channel5;
+      hdma_spi2_tx.Init.Request = DMA_REQUEST_1;
+      hdma_spi2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+      hdma_spi2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+      hdma_spi2_tx.Init.MemInc = DMA_MINC_ENABLE;
+      hdma_spi2_tx.Init.PeriphDataAlignment = DMA_CCR_PSIZE_0;
+      hdma_spi2_tx.Init.MemDataAlignment = DMA_CCR_MSIZE_0;
+      hdma_spi2_tx.Init.Mode = DMA_NORMAL;
+      hdma_spi2_tx.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_spi2_tx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(hspi,hdmatx,hdma_spi2_tx);
+    }else{
+      Error_Handler();
+    }
   /* USER CODE END SPI2_MspInit 1 */
   }
   else if(hspi->Instance==SPI3)
@@ -428,6 +463,51 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
   /* USER CODE BEGIN SPI3_MspDeInit 1 */
 
   /* USER CODE END SPI3_MspDeInit 1 */
+  }
+
+}
+
+/**
+* @brief TIM_Base MSP Initialization
+* This function configures the hardware resources used in this example
+* @param htim_base: TIM_Base handle pointer
+* @retval None
+*/
+void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
+{
+  if(htim_base->Instance==TIM2)
+  {
+  /* USER CODE BEGIN TIM2_MspInit 0 */
+
+  /* USER CODE END TIM2_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_TIM2_CLK_ENABLE();
+  /* USER CODE BEGIN TIM2_MspInit 1 */
+  htim_base->Instance->DIER |= TIM_DIER_UDE_Msk;
+  /* USER CODE END TIM2_MspInit 1 */
+
+  }
+
+}
+
+/**
+* @brief TIM_Base MSP De-Initialization
+* This function freeze the hardware resources used in this example
+* @param htim_base: TIM_Base handle pointer
+* @retval None
+*/
+void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
+{
+  if(htim_base->Instance==TIM2)
+  {
+  /* USER CODE BEGIN TIM2_MspDeInit 0 */
+
+  /* USER CODE END TIM2_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_TIM2_CLK_DISABLE();
+  /* USER CODE BEGIN TIM2_MspDeInit 1 */
+
+  /* USER CODE END TIM2_MspDeInit 1 */
   }
 
 }

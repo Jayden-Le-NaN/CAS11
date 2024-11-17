@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "ad9833.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -60,6 +59,8 @@ DMA_HandleTypeDef hdma_spi2_tx;
 DMA_HandleTypeDef hdma_spi3_rx;
 DMA_HandleTypeDef hdma_spi3_tx;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -94,6 +95,7 @@ static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_DAC1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -138,6 +140,7 @@ int main(void)
   MX_SPI2_Init();
   MX_SPI3_Init();
   MX_DAC1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
@@ -168,7 +171,7 @@ int main(void)
   ADF4252_Write_All_Registers(&adf4252_obj);
   HAL_Delay(1000);
 
-  //------------------------------生成DDS的直流电压------------------------------
+  //------------------------------生成DDS的直流电�?------------------------------
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 470);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
@@ -183,10 +186,10 @@ int main(void)
 
 
 
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT为100
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION为0
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD为120
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_R, 1);                                                 // 设置R为1
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT�?100
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION�?0
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD�?120
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_R, 1);                                                 // 设置R�?1
   // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_REF_DOUBLER, ADF4252_STATUS_DISABLED);            // 设置double为disable
   // ADF4252_Prescaler_Set(&adf4252_obj, ADF4252_RF_PRESCALER_8);
   // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_PD_POLARITY, ADF4252_STATUS_POSITIVE);
@@ -238,7 +241,7 @@ int main(void)
   uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
   uint8_t ratio = 1;
 
-    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入一次,B28位和RESET位为1
+    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入�?�?,B28位和RESET位为1
   while (1)
   {
     /* USER CODE END WHILE */
@@ -311,7 +314,7 @@ int main(void)
         }
         
         packet[2] = ' ';
-        // 扫增益
+        // 扫增�?
         packet[3] = '-';
         packet[4] = char_map[((-gain) & 0xF0) >> 4];
         packet[5] = char_map[((-gain) & 0x0F)];
@@ -653,6 +656,51 @@ static void MX_SPI3_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 10000;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -694,13 +742,10 @@ static void MX_DMA_Init(void)
 {
 
   /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
@@ -716,6 +761,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
+  /* DMA2_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel3_IRQn);
 
 }
 

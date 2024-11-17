@@ -1,5 +1,6 @@
 #include "ad9833.h"
 #include "stm32l4xx_hal_spi.h"
+#include "stm32l4xx_hal_tim.h"
 #include "utils.h"
 
 //------------------------------------------------------------
@@ -7,10 +8,18 @@
 // Author           : JaydenLee
 //------------------------------------------------------------
 
+
 //------------------------------仅内部使用, 外部不可用------------------------------
-#define AD9833_Transmit_Strat()         HAL_GPIO_WritePin(ad9833_obj->fsync_pin_type, ad9833_obj->fsync_pin, GPIO_PIN_RESET)
+#define AD9833_Transmit_Start()         HAL_GPIO_WritePin(ad9833_obj->fsync_pin_type, ad9833_obj->fsync_pin, GPIO_PIN_RESET)
 #define AD9833_Transmit_Stop()          HAL_GPIO_WritePin(ad9833_obj->fsync_pin_type, ad9833_obj->fsync_pin, GPIO_PIN_SET)
+#define USE_TIM_DMA                     1
+#define NO_USE_TIM_DMA                  0
+
 //------------------------------仅内部使用, 外部不可用------------------------------
+static SPI_HandleTypeDef ad9833_tim_dma_spi;
+
+//--------------------------------------全局变量-----------------------------------
+uint8_t ad9833_tim_dma_flag = NO_USE_TIM_DMA;
 
 //------------------------------需要放入中断回调函数中的函数------------------------------
 void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi) {
@@ -20,6 +29,46 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
     }
 }
 //------------------------------需要放入中断回调函数中的函数------------------------------
+
+/**
+ * @brief               初始化定时器触发DMA传输频率数据至SPI
+ * @param ad9833_obj    ad9833 指定信息
+ * @param tx_data       需要发送的数据
+ * @param len           需要发送的数据长度
+ * @param timer         使用的定时器
+ * @param Prescaler     定时器预分频器
+ * @param Period        定时器周期
+ * @return              UTILS_OK    : 正常
+ *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输
+ */
+UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj, uint8_t* tx_data, uint32_t len, TIM_HandleTypeDef* timer, uint32_t Prescaler, uint32_t Period) {
+    if(ad9833_obj->spi != NULL){
+        if(HAL_SPI_DeInit(ad9833_obj->spi) != HAL_OK){
+            return UTILS_ERROR;
+        }   
+    }
+    ad9833_tim_dma_flag = USE_TIM_DMA;                                      //标记使用TIM DMA，在HAL_SPI_MspInit中执行对应代码
+
+    ad9833_obj->spi = &ad9833_tim_dma_spi;
+    ad9833_tim_dma_spi.Instance = SPI2;
+    ad9833_tim_dma_spi.Init.Mode = SPI_MODE_MASTER;
+    ad9833_tim_dma_spi.Init.Direction = SPI_DIRECTION_1LINE;
+    ad9833_tim_dma_spi.Init.DataSize = SPI_DATASIZE_16BIT;
+    ad9833_tim_dma_spi.Init.CLKPolarity = SPI_POLARITY_LOW;
+    ad9833_tim_dma_spi.Init.CLKPhase = SPI_PHASE_1EDGE;
+    ad9833_tim_dma_spi.Init.NSS = SPI_NSS_SOFT;
+    ad9833_tim_dma_spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+    ad9833_tim_dma_spi.Init.FirstBit = SPI_FIRSTBIT_MSB;
+    ad9833_tim_dma_spi.Init.TIMode = SPI_TIMODE_DISABLE;
+    ad9833_tim_dma_spi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+    ad9833_tim_dma_spi.Init.CRCPolynomial = 7;
+    ad9833_tim_dma_spi.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+    ad9833_tim_dma_spi.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+    if (HAL_SPI_Init(&ad9833_tim_dma_spi) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
 
 /*
  * @brief               使用阻塞的方式传输数组数据
@@ -67,7 +116,7 @@ static UTILS_Status AD9833_ControlRegisterWrite(AD9833_Info_Struct* ad9833_obj) 
     uint8_t packet[2];
     packet[0] = ((AD9833_REG_CONTROL | ad9833_obj->_control_reg_data) & 0xFF00) >> 8;
     packet[1] = (ad9833_obj->_control_reg_data) & 0x00FF;
-    AD9833_Transmit_Strat();
+    AD9833_Transmit_Start();
     status = AD9833_Transmit_8bit_Array(ad9833_obj, packet, 2);
     AD9833_Transmit_Stop();
     return status;
@@ -115,7 +164,7 @@ static UTILS_Status AD9833_RegisterWrite(AD9833_Info_Struct* ad9833_obj, uint16_
         }
     }
 
-    AD9833_Transmit_Strat();
+    AD9833_Transmit_Start();
     if (tx_mode == UTILS_LOOP) {
         status = AD9833_Transmit_8bit_Array(ad9833_obj, (uint8_t*)data, len);
         AD9833_Transmit_Stop();

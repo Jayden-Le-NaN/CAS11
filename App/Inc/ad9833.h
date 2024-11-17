@@ -65,6 +65,7 @@ UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode);
 UTILS_Status AD9833_Sleep(AD9833_Info_Struct* ad9833_obj, uint16_t sleep_mode);
 UTILS_Status AD9833_Reset(AD9833_Info_Struct* ad9833_obj);
 UTILS_Status AD9833_Transmit_Is_Idle(AD9833_Info_Struct* ad9833_obj);
+UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj, uint8_t* tx_data, uint32_t len, TIM_HandleTypeDef* timer, uint32_t Prescaler, uint32_t Period);
 void AD9833_Init(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi, uint32_t fsync_pin, GPIO_TypeDef* fsync_pin_type, uint32_t crystal_oscillator_frequency);
 //------------------------------外接函数------------------------------
 
