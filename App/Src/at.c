@@ -14,18 +14,22 @@
 #define AT_IS_TIMEOUT(start, time) (AT_GET_TICK() - (start) > (time))
 
 //------------------------------AT作业类型------------------------------
-#define AT_TYPE_WORK        0               // 普通作业
-#define AT_TYPE_CMD         1               // 标准命令
-#define AT_TYPE_MULTILIN    2               // 多行命令
-#define AT_TYPE_SINGLLING   3               // 单行命令
+#define AT_TYPE_WORK                        0               // 普通作业
+#define AT_TYPE_CMD                         1               // 标准命令
+#define AT_TYPE_MULTILIN                    2               // 多行命令
+#define AT_TYPE_SINGLLING                   3               // 单行命令
+#define AT_TYPE_WORK_WITHOUT_VA             4               // 普通作业(不使用可变参数)
+#define AT_TYPE_CMD_WITHOUT_VA              5               // 标准命令(不使用可变参数)
+#define AT_TYPE_MULTILIN_WITHOUT_VA         6               // 多行命令(不使用可变参数)
+#define AT_TYPE_SINGLLINE_WITHOUT_VA        7               // 单行命令(不适用可变参数)
 
-#ifndef AT_DEBUG
-    #define AT_DEBUG(...) do {} while(0)
+#ifndef AT_DEBUG #define AT_DEBUG(...) do {} while(0)
 #endif 
 
 typedef int (*base_work)(at_obj_t* at, ...);
 
 static void at_send_line(at_obj_t* at, const char* fmt, va_list args);
+static void at_send_line_without_va(at_obj_t* at, const char* tx_data, uint32_t len);
 static const inline at_adapter_t* __get_adapter(at_obj_t* at) { return &at->adap;
 }
 
@@ -44,6 +48,10 @@ static void send_data(at_obj_t* at, const void* buf, uint32_t len) {
     at->adap.write(buf, len);
 }
 
+void at_send_data(at_obj_t* at, const void* buf, uint32_t len) {
+    at->adap.write(buf, len);
+}
+
 /*
  * @brief               格式化打印
  * @param at            at结构体
@@ -57,6 +65,18 @@ static void print(at_obj_t* at, const char* cmd, ...) {
     at_send_line(at, cmd, args);
     va_end(args);
 }
+
+/*
+ * @brief               没有可变参数打印数据
+ * @param at            at结构体
+ * @param tx_data       打印的数据
+ * @param len           数据的长度
+ * @return              无
+ */
+static void print_without_va(at_obj_t* at, const char* tx_data, uint32_t len) {
+    at_send_line_without_va(at, tx_data, len);
+}
+
 
 /*
  * @brief               获取当前数据接收长度
@@ -146,19 +166,21 @@ static void do_at_callback(at_obj_t* at, at_item_t* item, at_callback_t cb, at_r
  * @param type          附加参数的类型
  * @return              是否成功添加作业
  */
-static bool add_work(at_obj_t* at, void* params, void* info, int type) {
+static bool add_work(at_obj_t* at, void* params, uint32_t param_len, void* info, int type) {
     at_item_t* item;
     if (list_empty(&at->ls_idle))                                   // 无空闲的at作业项
         return NULL;
     item = list_first_entry(&at->ls_idle, at_item_t, node);         // 从空闲链中取出作业
     item->info = (void*)info;
     item->param = (void*)params;
+    item->param_len = param_len;
     item->state = AT_STATE_WAIT;
     item->type = type;
     item->abort = 0;
     list_move_tail(&item->node, &at->ls_ready);
     return item != 0;
 }
+
 
 /*
  * @brief               执行作业
@@ -188,12 +210,12 @@ static int do_cmd_handler(at_obj_t* at) {
             break;
         case AT_STATE_WAIT:             
             if (search_string(at, cmd->mathcer)) {      // 接收匹配
-                AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
                 do_at_callback(at, item, cmd->cb, AT_RET_OK);
                 return true;
             }
             else if (search_string(at, "ERROR")) {
-                AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
                 if (++env->i >= cmd->retry) {
                     do_at_callback(at, item, cmd->cb, AT_RET_ERROR);
                     return true;
@@ -239,12 +261,12 @@ static int send_singleline_handler(at_obj_t* at) {
         break;
         case AT_STATE_WAIT:
             if (search_string(at, "OK")) {
-                AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
                 do_at_callback(at, item, cb, AT_RET_OK);    // 接收匹配
                 return true;
             }
             else if (search_string(at, "ERROR")) {
-                AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
                 if (++env->i >= 3) {
                     do_at_callback(at, item, cb, AT_RET_ERROR);
                     return true;
@@ -297,10 +319,10 @@ static int send_multiline_handler(at_obj_t* at) {
                 env->state = AT_STATE_IDLE;
                 env->i++;
                 env->j = 0;
-                AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
             }
             else if (search_string(at, "ERROR")) {
-                AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(a));
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(a));
                 if (++env->j >= 3) {
                     do_at_callback(at, item, cb, AT_RET_ERROR);
                     return true;
@@ -322,6 +344,70 @@ static int send_multiline_handler(at_obj_t* at) {
     return false;
 }
 
+static int do_work_without_va_handler(at_obj_t* at) {
+    // TODO: do work without valist tbd
+    return true;
+}
+
+static int do_cmd_without_va_handler(at_obj_t* at) {
+    // TODO: do work without valist tbd
+    return true;
+}
+
+static int send_singleline_without_va_handler(at_obj_t* at) {
+    at_item_t* item = at->cursor;
+    at_env_t* env = &at->env;
+    const char* cmd = (const char*)item->param;
+    uint32_t cmd_len = item->param_len;
+    at_callback_t cb = (at_callback_t)item->info;
+    
+    switch (env->state) {
+        case AT_STATE_IDLE:
+            // 补丁: 不进行状态跳转
+            env->printf_without_va(at, cmd, cmd_len);
+            env->state = AT_STATE_IDLE;
+            env->reset_timer(at);
+            env->recvclr(at);
+            return true;
+        break;
+        case AT_STATE_WAIT:
+            if (search_string(at, "OK")) {
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                do_at_callback(at, item, cb, AT_RET_OK);    // 接收匹配
+                return true;
+            }
+            else if (search_string(at, "ERROR")) {
+                // AT_DEBUG("<-\r\n%s\r\n", get_recv_buf(at));
+                if (++env->i >= 3) {
+                    do_at_callback(at, item, cb, AT_RET_ERROR);
+                    return true;
+                }
+                env->state = AT_STATE_EXEC;                 // 出错之后延时一段时间
+                env->reset_timer(at);                       // 重置定时器
+            }
+            else if (env->is_timeout(at, 3000 + env->i * 2000)) {
+                if (++env->i >= 3) {
+                    do_at_callback(at, item, cb, AT_RET_TIMEOUT);
+                    return true;
+                }
+                env->state = AT_STATE_IDLE;                 // 返回上一状态
+            }
+        break;
+        case AT_STATE_EXEC:
+            if (env->is_timeout(at, 500))
+                env->state = AT_STATE_IDLE;
+        break;
+        default:
+            env->state = AT_STATE_IDLE;
+    }
+    return false;
+}
+
+static int send_multiline_without_va_handler(at_obj_t* at) {
+    // TODO: do work without valist tbd
+    return true;
+}
+
 /*
  * @brief               发送行
  * @param fmt           格式化输出
@@ -339,7 +425,18 @@ static void at_send_line(at_obj_t* at, const char* fmt, va_list args) {
     send_data(at, buf, len);
     send_data(at, "\r\n", 2);
 
-    AT_DEBUG("->\r\n%s\r\n", buf);
+    // AT_DEBUG("->\r\n%s\r\n", buf);
+}
+
+/*
+ * @brief               不适用可变参数发送行
+ * @param tx_data       发送的数据
+ * @param len           发送数据的长度
+ * @returen             无
+ */
+static void at_send_line_without_va(at_obj_t* at, const char* tx_data, uint32_t len) {
+    send_data(at, tx_data, len);
+    send_data(at, "\r\n", 2);
 }
 
 /*
@@ -356,12 +453,12 @@ static void urc_handler_entry(at_obj_t* at, char* urc, uint32_t size) {
     for (i = 0; i < at->adap.urc_tbl_count; ++i, ++tbl) {
         n = strlen(tbl->prefix);
         if (strncmp(urc, tbl->prefix, n) == 0) {            // 匹配前缀
-            tbl->handler(tbl->obj_t, urc, size);            // 回调处理
+            tbl->handler(tbl->obj_t, at, urc, size);            // 回调处理
             break;
         }
     }
-    if (at->cursor == NULL)
-        AT_DEBUG("<=\r\n%s\r\n", urc);
+    // if (at->cursor == NULL)
+        // AT_DEBUG("<=\r\n%s\r\n", urc);
 }
 
 /*
@@ -379,8 +476,8 @@ static void urc_recv_progress(at_obj_t* at, char* buf, uint32_t size) {
     if (size == 0 && at->urc_cnt > 0) {
         if (AT_IS_TIMEOUT(at->urc_timer, 2000))  {          // 接收超时
             urc_handler_entry(at, urc_buf, at->urc_cnt);
-            if (at->urc_cnt > 1)
-                AT_DEBUG("Urc recv timeout.\r\n");
+            // if (at->urc_cnt > 1)
+                // AT_DEBUG("Urc recv timeout.\r\n");
             at->urc_cnt = 0;
         }
     }
@@ -398,6 +495,27 @@ static void urc_recv_progress(at_obj_t* at, char* buf, uint32_t size) {
             else if (at->urc_cnt >= urc_size)               // 溢出处理
                 at->urc_cnt = 0;
         }
+    }
+}
+
+static void urc_recv_handler(at_obj_t* at, char* buf, uint32_t size) {
+    char* urc_buf;
+    int ch;
+    uint16_t urc_size;
+    urc_buf = (char*)at->adap.urc_buf;
+    urc_size = at->adap.urc_buf_size;
+
+    while (size--) {
+        ch = *buf++;
+        urc_buf[at->urc_cnt++] = ch;
+            if (ch == '\n' || ch == '\r' || ch == '\0') {   // urc 结束符
+                urc_buf[at->urc_cnt] = '\0';
+                if (at->urc_cnt > 2) 
+                    urc_handler_entry(at, urc_buf, at->urc_cnt);
+                at->urc_cnt = 0;
+            }
+            else if (at->urc_cnt >= urc_size)               // 溢出处理
+                at->urc_cnt = 0;
     }
 }
 
@@ -419,8 +537,7 @@ static void resp_recv_process(at_obj_t* at, const char* buf, uint32_t size) {
         at->recv_cnt = 0;
     
     memcpy(recv_buf + at->recv_cnt, buf, size);
-    at->recv_cnt += size;
-    recv_buf[at->recv_cnt] = '\0';
+    at->recv_cnt += size; recv_buf[at->recv_cnt] = '\0';
 }
 
 /*
@@ -437,6 +554,7 @@ static void resp_recv_process(at_obj_t* at, const char* buf, uint32_t size) {
     
     env->is_timeout = at_is_timeout;
     env->printf = print;
+    env->printf_without_va = at_send_line_without_va;
     env->recvbuf = get_recv_buf;
     env->recvclr = recv_buf_clear;
     env->recvlen = get_recv_count;
@@ -462,7 +580,7 @@ static void resp_recv_process(at_obj_t* at, const char* buf, uint32_t size) {
  * @return              是否成功添加作业
  */
 bool at_do_work(at_obj_t* at, int (*work)(at_env_t* e), void* params) {
-    return add_work(at, params, (void*)work, AT_TYPE_WORK);
+    return add_work(at, params, 0, (void*)work, AT_TYPE_WORK);
 }
 
 /*
@@ -473,7 +591,7 @@ bool at_do_work(at_obj_t* at, int (*work)(at_env_t* e), void* params) {
  * @return              是否成功添加作业
  */
 bool at_do_cmd(at_obj_t* at, void* params, const at_cmd_t* cmd) {
-    return add_work(at, params, (void*)cmd, AT_TYPE_CMD);
+    return add_work(at, params, 0, (void*)cmd, AT_TYPE_CMD);
 }
 
 /*
@@ -484,7 +602,18 @@ bool at_do_cmd(at_obj_t* at, void* params, const at_cmd_t* cmd) {
  * @return              是否成功添加作业
  */
 bool at_send_singleline(at_obj_t* at, at_callback_t cb, const char* singleline) {
-    return add_work(at, (void*)singleline, (void*)cb, AT_TYPE_SINGLLING);
+    return add_work(at, (void*)singleline, 0, (void*)cb, AT_TYPE_SINGLLING);
+}
+
+/*
+ * @brief               执行AT作业(自定义作业)
+ * @param at            at结构体
+ * @param cb            执行回调
+ * @param singleline    单行命令
+ * @return              是否成功添加作业
+ */
+bool at_send_singleline_without_va(at_obj_t* at, at_callback_t cb, const char* singlline, uint32_t len) {
+    return add_work(at, (void*)singlline, len, (void*)cb, AT_TYPE_SINGLLINE_WITHOUT_VA);
 }
 
 /*
@@ -495,7 +624,7 @@ bool at_send_singleline(at_obj_t* at, at_callback_t cb, const char* singleline) 
  * @return              是否成功添加作业
  */
 bool at_send_multiline(at_obj_t *at, at_callback_t cb, const char **multiline) {
-    return add_work(at, multiline, (void*)cb, AT_TYPE_MULTILIN);
+    return add_work(at, multiline, 0, (void*)cb, AT_TYPE_MULTILIN);
 }
 
 /*
@@ -527,7 +656,11 @@ static void at_work_manager(at_obj_t* at) {
         do_work_handler,
         do_cmd_handler,
         send_multiline_handler,
-        send_singleline_handler
+        send_singleline_handler,
+        do_work_without_va_handler,
+        do_cmd_without_va_handler,
+        send_multiline_without_va_handler,
+        send_singleline_without_va_handler,
     };
 
     if (at->cursor == NULL) {
@@ -558,7 +691,17 @@ void at_poll_taks(at_obj_t *at) {
     char rbuf[32];
     uint32_t read_size;
     read_size = __get_adapter(at)->read(rbuf, sizeof(rbuf));
-    urc_recv_progress(at, rbuf, read_size);
-    resp_recv_process(at, rbuf, read_size);
-    at_work_manager(at);
+    if (read_size != 0) {
+        urc_recv_progress(at, rbuf, read_size);
+        resp_recv_process(at, rbuf, read_size);
+    }
+    // at_work_manager(at);
+}
+
+void at_recv_task(at_obj_t* at, uint32_t data_len) {
+    char rbuf[256];
+    uint32_t read_size = __get_adapter(at)->read(rbuf, data_len);
+    if (read_size != 0) {
+        urc_recv_handler(at, rbuf, read_size);
+    }
 }
