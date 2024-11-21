@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "at.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -64,6 +63,8 @@ DMA_HandleTypeDef hdma_spi3_tx;
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -86,7 +87,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
     if (huart == &huart1) {
         ring_buffer_put(&uart1_rx_rb, uart1_rx_buffer, Size);       // 把数据放到环形缓冲区中
         ring_buffer_put(&uart1_rx_event_rb, (uint8_t*)&Size, 2);    // 存储事件的值到环形缓冲区中
-        HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer));
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
     }
 }
 
@@ -234,7 +235,9 @@ int main(void)
   ring_buffer_init(&uart1_tx_rb, uart1_tx_buffer, sizeof(uart1_tx_rb_buffer) / sizeof(uart1_tx_rb_buffer[0]));
   ring_buffer_init(&uart1_tx_event_rb, uart1_tx_event_rb_buffer, sizeof(uart1_tx_event_rb_buffer) / sizeof(uart1_tx_event_rb_buffer[0]));
 
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
+  // HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
+  // 使用DMA进行接收,保证数据不会丢失
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
   at_obj_init(&at, &at_adapter);
 
 
@@ -729,6 +732,12 @@ static void MX_DMA_Init(void)
   /* DMA2_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
+  /* DMA2_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
+  /* DMA2_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 
 }
 
