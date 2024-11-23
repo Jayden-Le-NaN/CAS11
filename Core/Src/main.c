@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "sstv_mode_data.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,6 +41,8 @@ GD5F2GM7_Info_Struct gd5f2gm7_obj;
 PM004M_Info_Struct pm004m_obj;
 LTC5589_Info_Struct ltc5589_obj;
 AD9833_Info_Struct ad9833_obj;
+AD9833_Info_Struct ad9833_i;
+AD9833_Info_Struct ad9833_q;
 
 
 
@@ -67,6 +69,33 @@ UART_HandleTypeDef huart1;
 uint8_t buff[] = "Hello World\n";
 uint8_t tx_buff[] = "Transmit";
 uint8_t rx_buff[] = "Receive";
+
+// uint16_t PD120_header_psc[13] = {8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1};
+// uint16_t PD120_header_arr[13] = {3000-1, 100-1, 3000-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1};
+// uint16_t PD120_header_frq[13] = {1900, 1200, 1900, 1200, 1100, 1100, 1100, 1100, 1100, 1300, 1100, 1300, 1200};
+// uint16_t PD120_pulse_porch_arr_ptr1[2] = {200-1, 2080-190};
+// uint16_t PD120_pulse_porch_psc_ptr1[2] = {8000-1, 80};
+// uint16_t PD120_pulse_porch_frq_ptr1[2] = {1200, 1500};
+// uint16_t PD120_pulse_porch_num[4] = {2, 0, 0, 0};
+// const SSTV_MODE_Struct PD120_MODE = {
+//     .sstv_mode = PD120,
+//     .sstv_dma_line_cnt = (496)/2,           // including 16 line header
+//     .sstv_dma_line_length = 640*3,
+
+//     .header_psc = PD120_header_psc,//psc 8000 ->10kHz 100us
+//     .header_arr = PD120_header_arr,
+//     .header_frq = PD120_header_frq,
+//     .header_num = 13,
+
+//     .pulse_porch_arr_ptr = {PD120_pulse_porch_arr_ptr1, NULL, NULL, NULL}, //20ms  (2.8-0.19)ms
+//     .pulse_porch_psc_ptr = {PD120_pulse_porch_psc_ptr1, NULL, NULL, NULL},      //100us 1us
+//     .pulse_porch_frq_ptr = {PD120_pulse_porch_frq_ptr1, NULL, NULL, NULL},
+//     .pulse_porch_num = PD120_pulse_porch_num,
+//     .loop_num = 4,
+//     //190ms per color pixel -> 3 spi writes
+//     .dma_psc = 0,
+//     .dma_arr = 5068-1               //80MHz情况下周期为63.3375us，比较难做，主时钟最好是3倍数
+// };
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
     //------------------------------FLAH中断处理------------------------------
@@ -159,7 +188,7 @@ int main(void)
     
 
   //------------------------------本振ADF4252测试------------------------------
-  ADF4252_Info_Struct adf4252_obj;
+  /*ADF4252_Info_Struct adf4252_obj;
   ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
   (&adf4252_obj)->_val_rf_n_divider  = 0x7B0000;                
   (&adf4252_obj)->_val_rf_r_divider  = 0x108009;
@@ -169,11 +198,11 @@ int main(void)
   (&adf4252_obj)->_val_if_r_divider  = 0x195;
   (&adf4252_obj)->_val_if_control    = 0xA6;
   ADF4252_Write_All_Registers(&adf4252_obj);
-  HAL_Delay(1000);
+  HAL_Delay(1000);*/
 
-  //------------------------------生成DDS的直流电�?------------------------------
-  HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 470);
-  HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+  //------------------------------生成DDS的直流电�??------------------------------
+  //HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 470);
+  //HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
   //------------------------------LTC5589驱动测试------------------------------
 
@@ -186,10 +215,10 @@ int main(void)
 
 
 
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT�?100
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION�?0
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD�?120
-  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_R, 1);                                                 // 设置R�?1
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_INTEGER, 240);                                         // 设置INT�??100
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_FRACTIONAL, 0);                                        // 设置FRACTION�??0
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_INTERPOLATOR_MODULUS, 50);                                // 设置MOD�??120
+  // ADF4252_VC_Set(&adf4252_obj, ADF4252_VC_RF_R, 1);                                                 // 设置R�??1
   // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_REF_DOUBLER, ADF4252_STATUS_DISABLED);            // 设置double为disable
   // ADF4252_Prescaler_Set(&adf4252_obj, ADF4252_RF_PRESCALER_8);
   // ADF4252_Status_Set(&adf4252_obj, ADF4252_BIT_RF_PD_POLARITY, ADF4252_STATUS_POSITIVE);
@@ -216,13 +245,15 @@ int main(void)
   // uint8_t packet[16];
 
   //------------------------------AD9833测试------------------------------
-  AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA, 25000000);
-  AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
+  
+  //AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA, 25000000);
+  //AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
 
-  uint32_t freq = 1000;
-  uint32_t freq_list[] = {1000, 10000, 100000, 10000};
+  
+  //uint32_t freq = 1000;
+  //uint32_t freq_list[] = {1000, 10000, 100000, 10000};
   // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
-  AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
+  //AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
   // AD9833_SetWave(&ad9833_obj, AD9833_WAVE_UP_DOWN_RAMP);
 
     // 01_001000
@@ -241,25 +272,43 @@ int main(void)
   uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
   uint8_t ratio = 1;
 
-    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入�?�?,B28位和RESET位为1
+  //uint16_t tx_data[8] = {0xaaaa, 0x5555, 0xaaaa, 0x5555, 0x00, 0xffff, 0x00, 0xffff};
+  //AD9833_Init_Tx_DMA_TIM(&ad9833_obj, 7999, 4999);
+  //HAL_DMA_Start_IT(ad9833_obj.spi->hdmatx, (uint32_t)&tx_data, (uint32_t)&(ad9833_obj.spi->Instance->DR), 8);
+
+  AD9833_Init(&ad9833_i, NULL, GPIO_PIN_2, GPIOB, 25000000);
+  AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
+  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
+  HAL_Delay(1);
+  
+  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q);
+  
+  UTILS_Status util = SSTV_Transmit();
+  if(util == UTILS_OK){
+    sendString("1\r\n");
+  }
+    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入�??�??,B28位和RESET位为1
   while (1)
   {
     /* USER CODE END WHILE */
-
+    printf("while\r\n");
+    //sendString("while\n");
+    HAL_Delay(3000);
     /* USER CODE BEGIN 3 */
 
-
+    
     // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
     // LTC5589_Read_Register(&ltc5589_obj, 0x01, uart_buff);
 
-    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[0], 1, UTILS_DMA);
+    /*AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[0], 1, UTILS_DMA);
     HAL_Delay(1000);
     AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[1], 1, UTILS_DMA);
     HAL_Delay(1000);
     AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[2], 1, UTILS_DMA);
     HAL_Delay(1000);
     AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[3], 1, UTILS_DMA);
-    HAL_Delay(1000);
+    HAL_Delay(1000);*/
 
     // uint8_t rx_buff[256];
 
@@ -314,7 +363,7 @@ int main(void)
         }
         
         packet[2] = ' ';
-        // 扫增�?
+        // 扫增�??
         packet[3] = '-';
         packet[4] = char_map[((-gain) & 0xF0) >> 4];
         packet[5] = char_map[((-gain) & 0x0F)];
@@ -598,7 +647,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

@@ -8,10 +8,10 @@ void printf(const char *format, ...)
     char buffer[PRINT_BUFFER_SIZE];
     va_list args;
     va_start(args, format);
-    vsnprintf(buffer, PRINT_BUFFER_SIZE, format, args);
+    uint16_t len = vsnprintf(buffer, PRINT_BUFFER_SIZE, format, args);
     va_end(args);
 
-    HAL_UART_Transmit(&huart1, (uint8_t*)buffer, sizeof(buffer), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t*)buffer, len, HAL_MAX_DELAY);//sizeof(buffer)
 }
 
 /*
@@ -241,3 +241,25 @@ uint32_t UTILS_GetSysTick(void) {
 }
 
 
+void sendString(const char* str) {
+    uint8_t packet[256]; // 根据需要调整大小
+    uint16_t index = 0;
+
+    while (*str) {
+        if (*str == '\n') {
+            packet[index++] = '\r'; // 添加回车符
+            packet[index++] = '\n';  // 添加换行符
+        } else {
+            packet[index++] = (uint8_t)(*str); // 添加字符
+        }
+        str++;
+        
+        // 确保不超过packet数组的大小
+        if (index >= sizeof(packet)) {
+            break;
+        }
+    }
+
+    // 发送数据
+    HAL_UART_Transmit(&huart1, packet, index, HAL_MAX_DELAY);
+}

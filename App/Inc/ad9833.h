@@ -4,7 +4,9 @@
 #include "utils.h"
 
 //------------------------------寄存器------------------------------
-#define AD9833_REG_CONTROL                          (0x0 << 14)                     
+#define AD9833_REG_CONTROL                          (0x0 << 14)  
+#define AD9833_REG_RESET                            (0x1 << 8 )  
+#define AD9833_REG_B28                              (0x1 << 13)
 #define AD9833_REG_FREQ0                            (0x1 << 14)
 #define AD9833_REG_FREQ1                            (0x2 << 14)
 #define AD9833_REG_PHASE0                           (0x6 << 13)
@@ -56,6 +58,9 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
 //------------------------------需要放入中断回调函数中的函数------------------------------
 
 //------------------------------外接函数------------------------------
+void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t Data);
+void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t* frqh, uint16_t* frql);
+void AD9833_FrequencyConversion_2Reg(AD9833_Info_Struct* ad9833_obj, uint16_t* raw_freq, uint16_t* frqh, uint16_t* frql);
 UTILS_Status AD9833_FrequencySetMode(AD9833_Info_Struct* ad9833_obj, uint8_t freq_set_mode);
 UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t freq_out_sel);
 UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase_out_sel);
@@ -65,7 +70,9 @@ UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode);
 UTILS_Status AD9833_Sleep(AD9833_Info_Struct* ad9833_obj, uint16_t sleep_mode);
 UTILS_Status AD9833_Reset(AD9833_Info_Struct* ad9833_obj);
 UTILS_Status AD9833_Transmit_Is_Idle(AD9833_Info_Struct* ad9833_obj);
-UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj, uint8_t* tx_data, uint32_t len, TIM_HandleTypeDef* timer, uint32_t Prescaler, uint32_t Period);
+UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info_Struct* ad9833_obj2, SPI_HandleTypeDef* ad9833_tim_dma_spi, TIM_HandleTypeDef* ad9833_tim);
+// void DMA_TIM_SPI_HalfTxCplt(void);
+// void DMA_TIM_SPI_TxCplt(void);
 void AD9833_Init(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi, uint32_t fsync_pin, GPIO_TypeDef* fsync_pin_type, uint32_t crystal_oscillator_frequency);
 //------------------------------外接函数------------------------------
 

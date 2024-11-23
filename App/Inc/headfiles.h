@@ -6,6 +6,7 @@
 //----------------------------------------
 // 硬件驱动
 #include "sstv.h"
+//#include "sstv_mode_data.h"
 #include "ad9833.h"
 #include "w25qxx.h"
 #include "max5394.h"

@@ -22,6 +22,7 @@
 #include "stm32l4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "sstv.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,7 +42,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+extern SSTV_Info_Struct sstv_info;
+extern TIM_HandleTypeDef sstv_tim;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,6 +65,7 @@ extern DMA_HandleTypeDef hdma_spi3_rx;
 extern DMA_HandleTypeDef hdma_spi3_tx;
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
+extern TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -204,7 +207,6 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32l4xx.s).                    */
 /******************************************************************************/
-
 /**
   * @brief This function handles DMA1 channel3 global interrupt.
   */
@@ -243,8 +245,37 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_spi2_tx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-
+  sendString("DMA1 Channel5 irq suc\n");
   /* USER CODE END DMA1_Channel5_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM2 global interrupt.
+  */
+void TIM2_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM2_IRQn 0 */
+  //printf("T\r\n");
+  if(sstv_info._sstv_tx_state == SSTV_Transmitting){
+    if ((sstv_tim.Instance->SR & (TIM_FLAG_UPDATE)) == (TIM_FLAG_UPDATE)){
+      __HAL_TIM_CLEAR_FLAG(&sstv_tim, TIM_FLAG_UPDATE);
+      //判断当前的进度
+      if(sstv_info._sstv_fsm == SSTV_FSM_Header){
+        SSTV_TIM_Header_Callback();
+      }else if((sstv_info._sstv_fsm == SSTV_FSM_Loop) | (sstv_info._sstv_fsm == SSTV_FSM_DMA) | (sstv_info._sstv_fsm == SSTV_FSM_END)){
+        SSTV_TIM_Loop_Callback();
+      }else{
+        sendString("sstv fsm err");
+      }
+
+    }
+  }else{
+  /* USER CODE END TIM2_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim2);
+  /* USER CODE BEGIN TIM2_IRQn 1 */
+    sendString("TIM2 normal irq\n");
+  }
+  /* USER CODE END TIM2_IRQn 1 */
 }
 
 /**
@@ -319,4 +350,15 @@ void DMA2_Channel3_IRQHandler(void)
 
 /* USER CODE BEGIN 1 */
 
+void DMA1_Channel2_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel3_IRQn 0 */
+  
+  /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
+  HAL_DMA_IRQHandler(&hdma_spi2_tx);
+  //sendString("DMA1 Channel2 irq suc\n");
+  /* USER CODE END DMA1_Channel3_IRQn 1 */
+}
 /* USER CODE END 1 */

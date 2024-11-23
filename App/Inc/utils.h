@@ -9,7 +9,7 @@
 #define MCU_STM32L4XX
 
 #define MCU_FREQUENCY_MHZ       168         // STM32 系统时钟主频
-#define PRINT_BUFFER_SIZE       256         // printf 的缓冲区大小
+#define PRINT_BUFFER_SIZE       256U        // printf 的缓冲区大小
 
 //------------------------------标准库(C语言)------------------------------
 #include "stdarg.h"
@@ -72,7 +72,7 @@ int32_t UTILS_Ceil(double data);
 int32_t UTILS_Log2(uint32_t value);
 
 uint32_t UTILS_GetSysTick(void);
-
+void sendString(const char* str);
 
 void printf(const char *format, ...);
 
