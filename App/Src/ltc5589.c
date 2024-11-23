@@ -144,6 +144,7 @@ UTILS_Status LTC5589_Set_Frequency(LTC5589_Info_Struct* ltc5589_obj, uint8_t fre
         return UTILS_ERROR;
 
     UTILS_Status status = UTILS_OK;
+    ltc5589_obj->_freq = freq;
     status = LTC5589_WriteBit_Zone_Register(ltc5589_obj, 0x00, 6, 0, freq);
     return status;
 }
@@ -165,6 +166,8 @@ UTILS_Status LTC5589_Set_DigitalGain_Coarse(LTC5589_Info_Struct* ltc5589_obj, in
             status = UTILS_ERROR;
             break;
         }
+        else 
+            ltc5589_obj->_coarse_dg = gain;
 
         // 如果是同步细调的话给一个同步细调的信号
         if (ltc5589_obj->_digital_gain_fine_mode == LTC5589_FINE_SYNCHRONIZATION) {
@@ -216,8 +219,7 @@ UTILS_Status LTC5589_Set_DigitalGain_Fine_Mode(LTC5589_Info_Struct* ltc5589_obj,
         else {                                          // 同步
             if (LTC5589_WriteBit_Register(ltc5589_obj, 0x08, 2, 0) != UTILS_OK) {
                 status = UTILS_ERROR;
-                break;
-            }
+                break; }
             status = LTC5589_WriteBit_Register(ltc5589_obj, 0x01, 7, 0);
         }
     } while(0);
@@ -241,9 +243,11 @@ UTILS_Status LTC5589_Set_DCOffset(LTC5589_Info_Struct* ltc5589_obj, LTC5589_CHAN
 
     UTILS_Status status = UTILS_OK;
     if (channel == LTC5589_CHANNEL_I) {
+        ltc5589_obj->_i_dc_offset = offset;
         status = LTC5589_Write_Register(ltc5589_obj, 0x02, offset);
     }
     else {
+        ltc5589_obj->_q_dc_offset = offset;
         status = LTC5589_Write_Register(ltc5589_obj, 0x03, offset);
     }
     return status;
@@ -301,6 +305,7 @@ UTILS_Status LTC5589_Set_Phase(LTC5589_Info_Struct* ltc5589_obj, double phi) {
             break;
         }
 
+        ltc5589_obj->_phase = phi;
     } while(0);
     return status;
 }
@@ -346,8 +351,16 @@ void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint
     ltc5589_obj->spi = spi;    
     ltc5589_obj->cs_pin = cs_pin;
     ltc5589_obj->cs_pin_type = cs_pin_type;
-    ltc5589_obj->ttck_pin = ttck_pin;
+    ltc5589_obj->ttck_pin = ttck_pin;  
     ltc5589_obj->ttck_pin_type = ttck_pin_type;
+
+    //------------------------------初始化数据------------------------------
+    ltc5589_obj->_freq = 0x3E;
+    ltc5589_obj->_phase = 0;
+    ltc5589_obj->_i_dc_offset = 0;
+    ltc5589_obj->_q_dc_offset = 0;
+    ltc5589_obj->_coarse_dg = -4;
+    
 
     //------------------------------使能引脚时钟------------------------------
     UTILS_RCC_GPIO_Enable(ltc5589_obj->cs_pin_type);
@@ -367,3 +380,303 @@ void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint
     GPIO_InitStruct.Pin = ltc5589_obj->ttck_pin;
     HAL_GPIO_Init(ltc5589_obj->ttck_pin_type, &GPIO_InitStruct);
 }
+
+/*
+ * @brief               enable 指令的回调函数(没有写)
+ * @param ltc5589_obj   ltc5589 结构体
+ * @param recvbuf       数据缓冲区
+ * @param len           数据缓冲区的长度
+ * @return              AT_RES_OK           : 参数设置完成
+ *                      AT_RES_NO_CMD       : 缓冲区中没有找到该指令
+ *                      AT_RES_PARAM_ERROR  : 缓冲去中有该指令,但是参数设置不符合规范
+ */
+static at_response LTC5589_CMD_Enable_handler(LTC5589_Info_Struct* ltc5589_obj, char* recvbuf, uint32_t len) {
+    // TODO: tbd
+    at_response res = AT_RES_NO_CMD;
+    return res; 
+}
+
+
+/*
+ * @brief               Phase 指令的回调函数
+ * @param ltc5589_obj   ltc5589 结构体
+ * @param recvbuf       数据缓冲区
+ * @param len           数据缓冲区的长度
+ * @return              AT_RES_OK           : 参数设置完成
+ *                      AT_RES_NO_CMD       : 缓冲区中没有找到该指令
+ *                      AT_RES_PARAM_ERROR  : 缓冲去中有该指令,但是参数设置不符合规范
+ * @note                命令格式: Phase, num (double), num 范围 -240 ~ 239
+ */
+static at_response LTC5589_CMD_Phase_handler(LTC5589_Info_Struct* ltc5589_obj, char* recvbuf, uint32_t len) {
+    at_response res = AT_RES_OK; 
+    do {
+        // 查找是否有 DG 指令
+        char* cmd_pos = strstr(recvbuf, "Phase");
+        if (cmd_pos == NULL) {
+            res = AT_RES_NO_CMD;
+            break;
+        }
+        
+        // 查找数据
+        char* comma_pos = strchr(cmd_pos, ',');
+
+        // 获取数据
+        double param = atof(comma_pos + 1);            
+
+        // 验证数据合法性
+        if (param < -240 || param > 239) {
+            res = AT_RES_PARAM_ERROR;
+            break;
+        }
+
+        // 设置数据
+        LTC5589_Set_Phase(ltc5589_obj, param);
+
+    } while(0);
+
+    return res;
+}
+
+/*
+ * @brief               DG 指令的回调函数
+ * @param ltc5589_obj   ltc5589 结构体
+ * @param recvbuf       数据缓冲区
+ * @param len           数据缓冲区的长度
+ * @return              AT_RES_OK           : 参数设置完成
+ *                      AT_RES_NO_CMD       : 缓冲区中没有找到该指令
+ *                      AT_RES_PARAM_ERROR  : 缓冲去中有该指令,但是参数设置不符合规范
+ * @note                命令格式: DG, num(int),  num 范围 -19 ~ 0
+ */
+static at_response LTC5589_CMD_DG_handler(LTC5589_Info_Struct* ltc5589_obj, char* recvbuf, uint32_t len) {
+    at_response res = AT_RES_OK;
+    do {
+        // 查找是否有 DG 指令
+        char* cmd_pos = strstr(recvbuf, "DG");
+        if (cmd_pos == NULL) {
+            res = AT_RES_NO_CMD;
+            break;
+        }
+        
+        // 查找数据
+        char* comma_pos = strchr(cmd_pos, ',');
+
+        // 获取数据
+        int param = atoi(comma_pos + 1);            
+
+        // 验证数据合法性
+        if (param > 0 || param < -19) {
+            res = AT_RES_PARAM_ERROR;
+            break;
+        }
+
+        // 设置数据
+        LTC5589_Set_DigitalGain_Coarse(ltc5589_obj, param);
+
+    } while(0);
+    return res;
+}
+
+/*
+ * @brief               DCOffset 指令的回调函数
+ * @param ltc5589_obj   ltc5589 结构体
+ * @param recvbuf       数据缓冲区
+ * @param len           数据缓冲区的长度
+ * @return              AT_RES_OK           : 参数设置完成
+ *                      AT_RES_NO_CMD       : 缓冲区中没有找到该指令
+ *                      AT_RES_PARAM_ERROR  : 缓冲去中有该指令,但是参数设置不符合规范
+ * @note                命令格式: DCOffset, I/Q, num(int),  num 范围 1 ~ 255
+ */
+static at_response LTC5589_CMD_DCOffset_handler(LTC5589_Info_Struct* ltc5589_obj, char* recvbuf, uint32_t len) {
+    at_response res = AT_RES_OK; 
+
+    do {
+        // 查找是否有 DCOffset 指令
+        char* cmd_pos = strstr(recvbuf, "DCOffset");
+        if (cmd_pos == NULL) {
+            res = AT_RES_NO_CMD;
+            break;
+        }
+        
+        char* comma_1_pos = strchr(cmd_pos, ',');
+        char* comma_2_pos = strchr(comma_1_pos + 1, ',');
+        size_t length = comma_2_pos - comma_1_pos;
+
+        LTC5589_CHANNEL channel;
+        // 检查是 I通道 直流偏置 还是 Q通道 直流偏置
+        if (memchr(comma_1_pos, 'I', length) != NULL) {
+            channel = LTC5589_CHANNEL_I; 
+        }
+        else if(memchr(comma_1_pos, 'Q', length) != NULL) {
+            channel = LTC5589_CHANNEL_Q; 
+        }
+        else {
+            res = AT_RES_PARAM_ERROR;
+            break;
+        }
+    
+        // 获取偏置数据
+        int param = atoi(comma_2_pos + 1);
+
+        if (param < 1 || param > 255) {
+            res = AT_RES_PARAM_ERROR;
+            break;
+        }
+
+        LTC5589_Set_DCOffset(ltc5589_obj, channel, param);
+    } while(0);
+    return res;
+}
+
+/*
+ * @brief               Freq 指令的回调函数
+ * @param ltc5589_obj   ltc5589 结构体
+ * @param recvbuf       数据缓冲区
+ * @param len           数据缓冲区的长度
+ * @return              AT_RES_OK           : 参数设置完成
+ *                      AT_RES_NO_CMD       : 缓冲区中没有找到该指令
+ *                      AT_RES_PARAM_ERROR  : 缓冲去中有该指令,但是参数设置不符合规范
+ * @note                命令格式: Freq, num(int),  num 范围 5 ~ 127
+ */
+static at_response LTC5589_CMD_Freq_Handler(LTC5589_Info_Struct* ltc5589_obj, char* recvbuf, uint32_t len) {
+    at_response res = AT_RES_OK;
+
+    do {
+        // 查找是否有 Freq 指令
+        char* cmd_pos = strstr(recvbuf, "Freq");
+        if (cmd_pos == NULL) {
+            res = AT_RES_NO_CMD;
+            break;
+        }
+        
+        // 查找数据
+        char* comma_pos = strchr(cmd_pos, ',');
+
+        // 获取数据
+        int param = atoi(comma_pos + 1);            
+
+        // 验证数据合法性
+        if (param > 127 || param < 5) {
+            res = AT_RES_PARAM_ERROR;
+            break;
+        }
+
+        // 设置数据
+        LTC5589_Set_Frequency(ltc5589_obj, param);
+
+    } while(0);
+    return res;
+}
+
+/*
+ * @brief               AT 指令回调函数
+ * @param ltc5589_obj   ltc5589 结构体
+ * @param at            at 结构体
+ * @param recvbuf       数据接收缓冲区
+ * @param len           缓冲区中有效数据的长度
+ * @return              无
+ */
+void LTC5589_AT_Handler(void* ltc5589_obj, at_obj_t* at, char* recvbuf, int32_t len) {
+    LTC5589_Info_Struct* obj = (LTC5589_Info_Struct*)ltc5589_obj;
+
+    //------------------------------AT+5589?指令------------------------------
+    if (strncmp(recvbuf, "AT+5589?", sizeof("AT+5589?") - 1) == 0) {
+        char buff[256];
+        int param_len;
+        at_send_data(at, "\r\n+5589: Param Value: \r\n", sizeof("\r\n+5589: Param Value: \r\n"));
+
+        //------------------------------处理直流偏置(I)------------------------------
+        param_len = snprintf(buff, sizeof(buff), "%d", obj->_i_dc_offset);
+        at_send_data(at, "+5589: I DC Offset: ", sizeof("+5589: I DC Offset: "));
+        at_send_data(at, buff, param_len);
+        at_send_data(at, "\r\n", sizeof("\r\n"));
+
+        //------------------------------处理直流偏置(Q)------------------------------
+        param_len = snprintf(buff, sizeof(buff), "%d", obj->_q_dc_offset);
+        at_send_data(at, "+5589: Q DC Offset: ", sizeof("+5589: Q DC Offset: "));
+        at_send_data(at, buff, param_len);
+        at_send_data(at, "\r\n", sizeof("\r\n"));
+
+        //------------------------------处理直流增益------------------------------
+        param_len = snprintf(buff, sizeof(buff), "%d", obj->_coarse_dg);
+        at_send_data(at, "+5589: Coarse DG: ", sizeof("+5589: Coarse DG: "));
+        at_send_data(at, buff, param_len);
+        at_send_data(at, "\r\n", sizeof("\r\n"));
+
+        //------------------------------处理相位------------------------------
+        param_len = snprintf(buff, sizeof(buff), "%d", (int32_t)obj->_phase);
+        at_send_data(at, "+5589: Phase: ", sizeof("+5589: Phase: "));
+        at_send_data(at, buff, param_len);
+        at_send_data(at, "\r\n", sizeof("\r\n"));
+
+        //------------------------------处理频率------------------------------
+        param_len = snprintf(buff, sizeof(buff), "%d", obj->_freq);
+        at_send_data(at, "+5589: Freq: ", sizeof("+5589: Freq: "));
+        at_send_data(at, buff, param_len);
+        at_send_data(at, "\r\n", sizeof("\r\n"));
+    }
+    else if (strncmp(recvbuf, "AT+5589=", sizeof("AT+5589=") - 1) == 0) {
+        at_send_data(at, "\n", sizeof("\n"));
+
+        //------------------------------查询指令------------------------------
+        at_response en_cmd_res = LTC5589_CMD_Enable_handler(ltc5589_obj, recvbuf, len);
+        at_response phase_cmd_res = LTC5589_CMD_Phase_handler(ltc5589_obj, recvbuf, len);
+        at_response dg_cmd_res = LTC5589_CMD_DG_handler(ltc5589_obj, recvbuf, len);
+        at_response dc_offset_cmd_res = LTC5589_CMD_DCOffset_handler(ltc5589_obj, recvbuf, len);
+        at_response freq_cmd_res = LTC5589_CMD_Freq_Handler(ltc5589_obj, recvbuf, len);
+        
+        //------------------------------Enable 指令反馈------------------------------
+        if (en_cmd_res == AT_RES_PARAM_ERROR) {
+            at_send_data(at, "+5589: Enable cmd param error\r\n", sizeof("+5589: Enable cmd param error\r\n"));
+        }
+        else if (en_cmd_res == AT_RES_OK) {
+            at_send_data(at, "+5589: Enable cmd set ok\r\n", sizeof("+5589: Enable cmd set ok\r\n"));
+        }
+
+        //------------------------------Phase 指令反馈------------------------------
+        if (phase_cmd_res == AT_RES_PARAM_ERROR) {
+            at_send_data(at, "+5589: Phase cmd param error\r\n", sizeof("+5589: Phase cmd param error\r\n"));
+        }
+        else if (phase_cmd_res == AT_RES_OK) {
+            at_send_data(at, "+5589: Pahse cmd set ok\r\n", sizeof("+5589: Pahse cmd set ok\r\n"));
+        }
+
+        //------------------------------DG(数字增益) 指令反馈------------------------------
+        if (dg_cmd_res == AT_RES_PARAM_ERROR) {
+            at_send_data(at, "+5589: DG cmd param error \r\n", sizeof("+5589: DG cmd param error \r\n"));
+        }
+        else if (dg_cmd_res == AT_RES_OK) {
+            at_send_data(at, "+5589: DG cmd set ok\r\n", sizeof("+5589: DG cmd set ok\r\n"));
+        }
+
+        //------------------------------DCOffset 指令反馈------------------------------
+        if (dc_offset_cmd_res == AT_RES_PARAM_ERROR) {
+            at_send_data(at, "+5589: DCOffset cmd param error\r\n", sizeof("+5589: DCOffset cmd param error\r\n"));
+        }
+        else if (dc_offset_cmd_res == AT_RES_OK) {
+            at_send_data(at, "+5589: DCOffset cmd set ok\r\n", sizeof("+5589: DCOffset cmd set ok\r\n"));
+        }
+
+        //------------------------------Freq 指令反馈------------------------------
+        if (freq_cmd_res == AT_RES_PARAM_ERROR) {
+            at_send_data(at, "+5589: Freq cmd param error\r\n", sizeof("+5589: Freq cmd param error\r\n"));
+        }
+        else if (freq_cmd_res == AT_RES_OK) {
+            at_send_data(at, "+5589: Freq cmd set ok\r\n", sizeof("+5589: Freq cmd set ok\r\n"));
+        }
+    }
+    else if (strncmp(recvbuf, "AT+5589:Help", sizeof("AT+5589:Help") - 1) == 0) {
+        at_send_data(at, "\r\n+5589: CMD Format:\r", sizeof("\r\n+5589: CMD Format:\r"));
+        at_send_data(at, "+5589: Enable, 0/1\r", sizeof("+5589: Enable, 0/1\r"));
+        at_send_data(at, "+5589: Pahse, num(double)\r", sizeof("+5589: Pahse, num(double)\r"));
+        at_send_data(at, "+5589: DG, num\r", sizeof("+5589: DG, num\r"));
+        at_send_data(at, "+5589: DCOffset, I/Q, num\r", sizeof("+5589: \"DCOffset\", num\r"));
+        at_send_data(at, "+5589: Freq, num\n", sizeof("+5589: Freq, num\n"));
+    }
+    else if (strncmp(recvbuf, "AT+5589:Hello", sizeof("AT+5589:Hello") - 1) == 0) {
+        at_send_data(at, "\r\nJaydenLee: Hi\r\n", sizeof("\r\nJaydenLee: Hi\r\n"));
+    }
+    else {
+        at_send_data(at, "\r\n+5589: CMD Error\r\n", sizeof("\r\n+5589: CMD Error\r\n"));
+    }
+}
+
