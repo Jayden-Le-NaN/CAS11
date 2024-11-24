@@ -72,6 +72,7 @@ int32_t UTILS_Ceil(double data);
 int32_t UTILS_Log2(uint32_t value);
 
 uint32_t UTILS_GetSysTick(void);
+HAL_StatusTypeDef UTILS_SendString(const char *str);
 
 
 void printf(const char *format, ...);
