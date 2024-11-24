@@ -13,10 +13,13 @@
 struct at_obj;                                                              // at结构体的前向声明
 
 
+
 //------------------------------urc处理项------------------------------
 typedef struct {
+    void* obj_t;                                                            // 对象类型
+    struct at_obj* at;                                                    // at 结构体
     const char *prefix;                                                     // 需要匹配的头部
-    void (*handler)(char* recvbuf, int32_t len);                            // 执行函数
+    void (*handler)(void* obj_t, struct at_obj* at, char* recvbuf, int32_t len); // 回调函数
 }urc_item_t;
 
 //------------------------------AT接口适配器------------------------------
@@ -39,7 +42,9 @@ typedef struct {
     void        (*reset_timer)(struct at_obj* at);                          // 重置时间
     bool        (*is_timeout)(struct at_obj* at, uint32_t ms);              // 时间跨度判断
     void        (*printf)(struct at_obj* at, const char* fmt, ...);         // printf 函数
-    char*       (*find)(struct at_obj* at, const char* expect);          // 查找函数
+    void        (*printf_without_va)(struct at_obj* at, const char* tx_data, uint32_t len);
+                                                                            // 不使用可变参数打印数据
+    char*       (*find)(struct at_obj* at, const char* expect);             // 查找函数
     char*       (*recvbuf)(struct at_obj* at);                              // 指向接收缓冲区
     uint32_t    (*recvlen)(struct at_obj* at);                              // 缓冲区总长度
     void        (*recvclr)(struct at_obj* at);                              // 清空接收缓冲区
@@ -53,6 +58,12 @@ typedef enum {
     AT_RET_TIMEOUT,                                                         // 响应超时
     AT_RET_ABORT,                                                           // 强行中止
 }at_return;
+
+typedef enum {
+    AT_RES_OK = 0,                                                          // 响应没问题
+    AT_RES_NO_CMD,                                                          // 没有相关指令
+    AT_RES_PARAM_ERROR,                                                     // 参数设置错误
+}at_response;
 
 //------------------------------AT响应------------------------------
 typedef struct {
@@ -76,6 +87,7 @@ typedef struct {
     uint32_t    state : 3;                                                  // 作业类型
     uint32_t    type  : 3;                          
     uint32_t    abort : 1;
+    uint32_t    param_len;                                                  // 参数长度
     void*       param;                                                      // 通用参数
     void*       info;                                                       // 通用信息指针
     struct list_head node;                                                  // 链表节点
@@ -105,7 +117,9 @@ typedef struct {
 
 void at_obj_init(at_obj_t* at, const at_adapter_t*);
 
-bool at_send_singleline(at_obj_t* at, at_callback_t cb, const char* singlling);
+bool at_send_singleline(at_obj_t* at, at_callback_t cb, const char* singlline);
+
+bool at_send_singleline_without_va(at_obj_t* at, at_callback_t cb, const char* singlline, uint32_t len);
 
 bool at_send_multiline(at_obj_t* at, at_callback_t cb, const char** multiline);
 
@@ -121,5 +135,8 @@ void at_resume(at_obj_t* at);
 
 void at_poll_taks(at_obj_t* at);
 
+void at_recv_task(at_obj_t* at, uint32_t data_len);
+
+void at_send_data(at_obj_t* at, const void* buf, uint32_t len);
 
 #endif

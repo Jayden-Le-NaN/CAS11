@@ -9,11 +9,12 @@
 #define MCU_STM32L4XX
 
 #define MCU_FREQUENCY_MHZ       168         // STM32 系统时钟主频
-#define PRINT_BUFFER_SIZE       256         // printf 的缓冲区大小
+#define PRINT_BUFFER_SIZE       256U        // printf 的缓冲区大小
 
 //------------------------------标准库(C语言)------------------------------
 #include "stdarg.h"
 #include "stdint.h"
+#include "stdbool.h"
 
 //------------------------------HAL库------------------------------
 #ifdef MCU_STM32F4XX
@@ -58,6 +59,15 @@ typedef enum {
             uint32_t*: UTILS_WriteBit_Zone_32bit    \
             )(data, msb, lsb, value)
 
+//------------------------------给ide使用------------------------------
+extern int strncmp(const char *str1, const char *str2, size_t n);
+extern char *strstr(const char *haystack, const char *needle);
+extern char *strchr(const char *str, int c);
+extern int atoi(const char *str);
+extern void *memchr(const void *str, int c, size_t n);
+extern double atof(const char *str);
+extern int sprintf(char *str, const char *format, ...);
+extern int snprintf ( char * str, size_t size, const char * format, ... );
 //------------------------------常用工具包(函数)------------------------------
 UTILS_Status UTILS_RCC_GPIO_Enable(GPIO_TypeDef* GPIOx);
 void UTILS_Delay_us(uint32_t us);
