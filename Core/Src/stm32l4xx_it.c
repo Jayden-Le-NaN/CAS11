@@ -248,7 +248,7 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_spi2_tx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-  sendString("DMA1 Channel5 irq suc\n");
+  printf("DMA1 Channel5 irq suc\r\n");
   /* USER CODE END DMA1_Channel5_IRQn 1 */
 }
 
@@ -268,7 +268,7 @@ void TIM2_IRQHandler(void)
       }else if((sstv_info._sstv_fsm == SSTV_FSM_Loop) | (sstv_info._sstv_fsm == SSTV_FSM_DMA) | (sstv_info._sstv_fsm == SSTV_FSM_END)){
         SSTV_TIM_Loop_Callback();
       }else{
-        sendString("sstv fsm err");
+        printf("sstv fsm err\r\n");
       }
 
     }
@@ -276,7 +276,7 @@ void TIM2_IRQHandler(void)
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
-    sendString("TIM2 normal irq\n");
+    printf("TIM2 normal irq\r\n");
   }
   /* USER CODE END TIM2_IRQn 1 */
 }
@@ -403,7 +403,7 @@ void DMA1_Channel2_IRQHandler(void)
   
   /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
   HAL_DMA_IRQHandler(&hdma_spi2_tx);
-  //sendString("DMA1 Channel2 irq suc\n");
+  //printf("DMA1 Channel2 irq suc\n");
   /* USER CODE END DMA1_Channel3_IRQn 1 */
 }
 /* USER CODE END 1 */

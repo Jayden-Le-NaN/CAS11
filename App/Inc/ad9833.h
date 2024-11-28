@@ -58,8 +58,8 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
 //------------------------------需要放入中断回调函数中的函数------------------------------
 
 //------------------------------外接函数------------------------------
-void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t Data);
-void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t* frqh, uint16_t* frql);
+void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data);
+void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh, uint16_t *frql);
 void AD9833_FrequencyConversion_2Reg(AD9833_Info_Struct* ad9833_obj, uint16_t* raw_freq, uint16_t* frqh, uint16_t* frql);
 UTILS_Status AD9833_FrequencySetMode(AD9833_Info_Struct* ad9833_obj, uint8_t freq_set_mode);
 UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t freq_out_sel);
@@ -74,6 +74,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
 // void DMA_TIM_SPI_HalfTxCplt(void);
 // void DMA_TIM_SPI_TxCplt(void);
 void AD9833_Init(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi, uint32_t fsync_pin, GPIO_TypeDef* fsync_pin_type, uint32_t crystal_oscillator_frequency);
+void Write_Half_Word(uint16_t *Data);
 //------------------------------外接函数------------------------------
 
 #endif

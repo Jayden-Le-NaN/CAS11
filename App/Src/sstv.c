@@ -36,7 +36,7 @@ static void gen_test_signal(uint16_t* arr, uint16_t len){
           arr[i] = 0x4000;
       }
     }
-    printf("%x\r\n", arr[i]);
+    // printf("%x\r\n", arr[i]);
   }
 
   for(i = 0;i<20;i++){
@@ -46,11 +46,20 @@ static void gen_test_signal(uint16_t* arr, uint16_t len){
   test_point[19] = 0;
 }
 
+
 /**
-  * @brief  
-  * @param  
-  * @retval 
-  */
+ * @brief  关联结构体，ad9833需要初始化fsync引脚和时钟速率，spi在SSTV_Transmit函数中初始化
+ *
+ * @param  sstv_mode_struct      SSTV mode structure
+ * @param  ad9833_i             AD9833 I channel structure
+ * @param  ad9833_q             AD9833 Q channel structure
+ * @retval UTILS_OK             SSTV module initialized successfully
+ * @retval UTILS_ERROR           SSTV module initialization failed
+ *
+ * @note   This function should be called before any other SSTV functions
+ *         SSTV module can only be initialized in IDLE state
+ *         AD9833 I and Q channel can only be initialized in IDLE state
+ */
 UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q)
 {
   if((ad9833_i->_dma_fsm_state_transmit != AD9833_DMA_Idle) | (ad9833_q->_dma_fsm_state_transmit != AD9833_DMA_Idle)){
@@ -65,21 +74,6 @@ UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *a
   sstv_info._loop_index = 0;
   sstv_info._pulse_porch_index = 0;
   sstv_info._line_sended = 0;
-  // sstv_info->_sstv_dma_line_cnt = sstv_mode_struct->sstv_dma_line_cnt;
-  // sstv_info->_sstv_dma_line_length = sstv_mode_struct->sstv_dma_line_length;
-  // sstv_info->_sstv_dma_one_line = sstv_mode_struct->sstv_dma_one_line;
-  // sstv_info->_header_arr = sstv_mode_struct->header_arr;
-  // sstv_info->_header_psc = sstv_mode_struct->header_psc;
-  // sstv_info->_header_frq = sstv_mode_struct->header_frq;
-  // sstv_info->_header_num = sstv_mode_struct->header_num;
-
-  // for(uint8_t i = 0;i<4;i++){
-  //   sstv_info->_pulse_porch_arr_ptr[i] = sstv_mode_struct->pulse_porch_frq_ptr[i];
-  //   sstv_info->_pulse_porch_psc_ptr[i] = sstv_mode_struct->pulse_porch_psc_ptr[i];
-  //   sstv_info->_pulse_porch_frq_ptr[i] = sstv_mode_struct->pulse_porch_frq_ptr[i];
-  //   sstv_info->_pulse_porch_num[i] = sstv_mode_struct->pulse_porch_num[i];
-  // }
-
   return UTILS_OK;
 }
 
@@ -94,31 +88,53 @@ UTILS_Status SSTV_Transmit(void){
   gen_test_signal(tx_buffer, sstv_info.sstv_mode->sstv_dma_line_length);
   sstv_info.tx_buffer_ptr = tx_buffer;
   //initiate
-  AD9833_Init_Tx_DMA_TIM(sstv_info.AD9833_I, sstv_info.AD9833_Q, &sstv_tim_dma_spi, &sstv_tim);
+  // AD9833_Init_Tx_DMA_TIM(sstv_info.AD9833_I, sstv_info.AD9833_Q, &sstv_tim_dma_spi, &sstv_tim);
 
   HAL_GPIO_WritePin(sstv_info.AD9833_I->fsync_pin_type, sstv_info.AD9833_I->fsync_pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(sstv_info.AD9833_Q->fsync_pin_type, sstv_info.AD9833_Q->fsync_pin, GPIO_PIN_RESET);
   HAL_Delay(1);
 
-  SPI_Write_Half_Word(&sstv_tim_dma_spi, AD9833_REG_CONTROL | AD9833_REG_RESET);
+  // 上电后要复位dds
+  uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
+  Write_Half_Word(&temp); // only for test
+  //SPI_Write_Half_Word(&sstv_tim_dma_spi, &temp);
+  HAL_Delay(1);
   
-  // TODO: reset dds; set i&q
+  // TODO: set i&q
   sstv_info.AD9833_I->spi->hdmatx->XferHalfCpltCallback = SSTV_DMA_HalfCplt_Callback;
   sstv_info.AD9833_I->spi->hdmatx->XferCpltCallback = SSTV_DMA_Cplt_Callback;
 
   //printf("%d, %d\r\n", sstv_info.sstv_mode->header_arr[sstv_info._header_index], sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
+
   _SSTV_SET_ARR(sstv_info.sstv_mode->header_arr[sstv_info._header_index]);
   _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
   __HAL_TIM_URS_ENABLE(&sstv_tim);    // 重要，否则_LOAD_TIM_REG会产生中断
   _LOAD_TIM_REG;
   
-  uint16_t frqh = 0;
-  uint16_t frql = 0;
-  AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->header_frq[sstv_info._header_index], &frqh, &frql);
+  uint16_t frqh1 = AD9833_REG_FREQ0;  // only for test
+  uint16_t frql1 = AD9833_REG_FREQ0;
+  uint16_t frqh2 = AD9833_REG_FREQ0;
+  uint16_t frql2 = AD9833_REG_FREQ0;
 
-  __HAL_TIM_ENABLE(&sstv_tim);//enable timer
-  AD9833_Write_Whole_Frq(&sstv_tim_dma_spi, &frqh, &frql);
-  ////printf("add\r\n");
+  //  AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->header_frq[sstv_info._header_index], &frqh, &frql);
+  uint16_t a = 2000;
+  AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &a, &frqh1, &frql1);    // only for test
+  a = 1000;
+  AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &a, &frqh2, &frql2);// only for test
+
+  // __HAL_TIM_ENABLE(&sstv_tim);//enable timer，测试写时注释掉
+  while(1){// only for test
+    AD9833_Write_Whole_Frq(&sstv_tim_dma_spi, &frqh1, &frql1);  //在函数内重写了，改为低速IO操作
+    HAL_Delay(1000);
+    AD9833_Write_Whole_Frq(&sstv_tim_dma_spi, &frqh2, &frql2);
+    HAL_Delay(1000);
+  }
+  
+  printf("%x, %x\r\n", frqh1, frql1);
+  printf("%x, %x\r\n", frqh2, frql2);
+  // return UTILS_OK;      // only for test
+
+  //printf("add\r\n");
   sstv_info._header_index += 1;
 
   //_SSTV_SET_ARR(sstv_info.sstv_mode->header_arr[sstv_info._header_index]);
@@ -132,12 +148,12 @@ void SSTV_TIM_Header_Callback(void){
   testflag[0] = 1;
   //printf("H\r\n");
 
-  uint16_t frqh = 0;
-  uint16_t frql = 0;
+  uint16_t frqh = AD9833_REG_FREQ0;
+  uint16_t frql = AD9833_REG_FREQ0;
   if(sstv_info._header_index < sstv_info.sstv_mode->header_num){
     
     AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->header_frq[sstv_info._header_index-1], &frqh, &frql);
-    ////printf("%d, %d\r\n", frqh, frql);
+    // printf("%x, %x\r\n", frqh, frql);
     AD9833_Write_Whole_Frq(&sstv_tim_dma_spi, &frqh, &frql);
     _SSTV_SET_ARR(sstv_info.sstv_mode->header_arr[sstv_info._header_index-1]);
     _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
@@ -158,14 +174,14 @@ void SSTV_TIM_Header_Callback(void){
 
     test_point[sstv_info.sstv_mode->header_num-2] = sstv_tim.Instance->CNT;
   }else{
-    sendString("tim header overflow");
+    printf("tim header overflow\r\n");
   }
   
 }
 
 void SSTV_TIM_Loop_Callback(void){
   testflag[1] = 1;
-  //printf("L\r\n");
+  // printf("L\r\n");
 
   // 从header到loop后通常会有pulse或porch，所以没考虑_pulse_porch_index为0的情况
   if(sstv_info._sstv_fsm == SSTV_FSM_Loop){
@@ -177,8 +193,9 @@ void SSTV_TIM_Loop_Callback(void){
       _SSTV_SET_ARR(sstv_info.sstv_mode->pulse_porch_arr_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index-1]);
       _SSTV_SET_PSC(sstv_info.sstv_mode->pulse_porch_psc_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index]);
 
-      //printf("a %d\r\n", sstv_info._pulse_porch_index);
-      //printf("a %d\r\n", sstv_info._loop_index);
+      // printf("a %d\r\n", sstv_info._pulse_porch_index);
+      // printf("a %d\r\n", sstv_info._loop_index);
+
       sstv_info._pulse_porch_index ++;
     }else if(sstv_info._pulse_porch_index == sstv_info.sstv_mode->pulse_porch_num[sstv_info._loop_index]){
       // 
@@ -189,8 +206,9 @@ void SSTV_TIM_Loop_Callback(void){
       _SSTV_SET_PSC(sstv_info.sstv_mode->dma_psc);
       sstv_info._sstv_fsm = SSTV_FSM_DMA;
 
-      //printf("b %d\r\n", sstv_info._pulse_porch_index);
-      //printf("b %d\r\n", sstv_info._loop_index);
+      // printf("b %d\r\n", sstv_info._pulse_porch_index);
+      // printf("b %d\r\n", sstv_info._loop_index);
+
       //重置_pulse_porch_index和 _loop_index++，进入DMA
       if(sstv_info._loop_index == sstv_info.sstv_mode->loop_num){
         sstv_info._loop_index = 0;
@@ -201,7 +219,7 @@ void SSTV_TIM_Loop_Callback(void){
       
       HAL_DMA_Start_IT(sstv_info.AD9833_I->spi->hdmatx, (uint32_t)sstv_info.tx_buffer_ptr, (uint32_t)&(sstv_info.AD9833_I->spi->Instance->DR), sstv_info.sstv_mode->sstv_dma_line_length);
     }else{
-      sendString("pp index overflow");
+      printf("pp index overflow\r\n");
     }
   }else if(sstv_info._sstv_fsm == SSTV_FSM_DMA){
     __HAL_DMA_ENABLE(sstv_info.AD9833_I->spi->hdmatx);
@@ -213,18 +231,20 @@ void SSTV_TIM_Loop_Callback(void){
     __HAL_TIM_DISABLE_IT(&sstv_tim, TIM_IT_UPDATE);
     _LOAD_TIM_REG;
     __HAL_TIM_DISABLE(&sstv_tim);
-    SPI_Write_Half_Word(&sstv_tim_dma_spi, AD9833_REG_CONTROL | AD9833_REG_RESET);
+    HAL_Delay(1);
+    uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
+    SPI_Write_Half_Word(&sstv_tim_dma_spi, &temp);
     sstv_info._sstv_fsm = SSTV_FSM_Idle;
     sstv_info._sstv_tx_state = SSTV_Idle;
     //printf("SSTV END\r\n");
   }else{
-    sendString("sstv loopcb err");
+    printf("sstv loopcb err\r\n");
   }
 }
 
 void SSTV_DMA_Cplt_Callback(void){
   test_point[19] += 1;
-  //printf("D %d\r\n", test_point[19]);
+  // printf("D %d\r\n", test_point[19]);
   sstv_info._line_sended += 1;
   if(sstv_info._line_sended < sstv_info.sstv_mode->sstv_dma_line_cnt * sstv_info.sstv_mode->loop_num){
     // 还没发完
