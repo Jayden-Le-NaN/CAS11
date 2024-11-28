@@ -44,7 +44,7 @@ AD9833_Info_Struct ad9833_obj;
 AD9833_Info_Struct ad9833_i;
 AD9833_Info_Struct ad9833_q;
 
-// urc 表
+// urc �?
 
 
 /* USER CODE END PM */
@@ -77,7 +77,7 @@ uint8_t uart1_rx_rb_buffer[4096];
 uint8_t uart1_rx_event_rb_buffer[4096];
 uint8_t uart1_rx_buffer[256];
 
-/* 发送相关ringbuffer ------------------------------------------------------------*/
+/* 发�?�相关ringbuffer ------------------------------------------------------------*/
 ring_buffer_t uart1_tx_rb;
 ring_buffer_t uart1_tx_event_rb;
 uint8_t uart1_tx_rb_buffer[4096];
@@ -87,8 +87,8 @@ uint8_t uart1_tx_buffer[256];
 /* 串口1接收空闲中断处理 ------------------------------------------------------------*/
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
     if (huart == &huart1) {
-        ring_buffer_put(&uart1_rx_rb, uart1_rx_buffer, Size);       // 把数据放到环形缓冲区中
-        ring_buffer_put(&uart1_rx_event_rb, (uint8_t*)&Size, 2);    // 存储事件的值到环形缓冲区中
+        ring_buffer_put(&uart1_rx_rb, uart1_rx_buffer, Size);       // 把数据放到环形缓冲区�?
+        ring_buffer_put(&uart1_rx_event_rb, (uint8_t*)&Size, 2);    // 存储事件的�?�到环形缓冲区中
         HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
     }
 }
@@ -102,7 +102,7 @@ uint32_t at_uart_write(const void* buffer, uint32_t len) {
     return ring_buffer_put(&uart1_tx_rb, (uint8_t*) buffer, len);
 }
 
-static uint8_t uart1_urcbuffer[256];        // urc 接收缓冲区
+static uint8_t uart1_urcbuffer[256];        // urc 接收缓冲�?
 uint8_t uart1_recvbuffer[256];
 
 void task1_handler(void* obj_t, struct at_obj* at, char* recvbuf, int32_t len);
@@ -112,14 +112,14 @@ void task3_handler(void* obj_t, struct at_obj* at, char* recvbuf, int32_t len);
 
 static at_obj_t at;
 
-static const urc_item_t urc_table[] = {     // urc 表
+static const urc_item_t urc_table[] = {     // urc �?
     {NULL, &at, "task1", task1_handler},
     {NULL, &at, "task2", task2_handler},
     {NULL, &at, "task3", task3_handler},
     {&ltc5589_obj, &at, "AT+5589", LTC5589_AT_Handler},
 };
 
-static const at_adapter_t at_adapter = {    // at 适配器
+static const at_adapter_t at_adapter = {    // at 适配�?
     .write = at_uart_write,
     .read = at_uart_read,
     .error = NULL,
@@ -299,7 +299,7 @@ int main(void)
   // ADF4252_Write_All_Registers(&adf4252_obj);
   // HAL_Delay(1000);
 
-  //------------------------------生成DDS的直流电压------------------------------
+  //------------------------------生成DDS的直流电�?------------------------------
   // HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 470);
   // HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
@@ -345,6 +345,7 @@ int main(void)
   //AD9833_Init_Tx_DMA_TIM(&ad9833_obj, 7999, 4999);
   //HAL_DMA_Start_IT(ad9833_obj.spi->hdmatx, (uint32_t)&tx_data, (uint32_t)&(ad9833_obj.spi->Instance->DR), 8);
 
+  HAL_Delay(1000);
   AD9833_Init(&ad9833_i, NULL, GPIO_PIN_2, GPIOB, 25000000);
   AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
   HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
@@ -355,15 +356,13 @@ int main(void)
   
   UTILS_Status util = SSTV_Transmit();
   if(util == UTILS_OK){
-    sendString("1\r\n");
+    // sendString("1\r\n");
   }
-    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入�??�??,B28位和RESET位为1
+    // AD9833_WriteData(AD9833_RESET | AD9833_B28);            // 选择数据写入�???�???,B28位和RESET位为1
   while (1)
   {
     /* USER CODE END WHILE */
-    printf("while\r\n");
-    //sendString("while\n");
-    HAL_Delay(3000);
+
     /* USER CODE BEGIN 3 */
 
         if (ring_buffer_get(&uart1_rx_event_rb, (uint8_t*)&uart1_rx_data_size, 4) != 0) {
@@ -426,7 +425,7 @@ int main(void)
         }
         
         packet[2] = ' ';
-        // 扫增�??
+        // 扫增�???
         packet[3] = '-';
         packet[4] = char_map[((-gain) & 0xF0) >> 4];
         packet[5] = char_map[((-gain) & 0x0F)];
@@ -776,6 +775,9 @@ static void MX_DMA_Init(void)
   /* DMA2_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
+  /* DMA2_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel3_IRQn);
   /* DMA2_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);

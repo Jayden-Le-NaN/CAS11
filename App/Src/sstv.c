@@ -158,7 +158,7 @@ void SSTV_TIM_Header_Callback(void){
 
     test_point[sstv_info.sstv_mode->header_num-2] = sstv_tim.Instance->CNT;
   }else{
-    sendString("tim header overflow");
+    printf("tim header overflow");
   }
   
 }
@@ -201,7 +201,7 @@ void SSTV_TIM_Loop_Callback(void){
       
       HAL_DMA_Start_IT(sstv_info.AD9833_I->spi->hdmatx, (uint32_t)sstv_info.tx_buffer_ptr, (uint32_t)&(sstv_info.AD9833_I->spi->Instance->DR), sstv_info.sstv_mode->sstv_dma_line_length);
     }else{
-      sendString("pp index overflow");
+      printf("pp index overflow");
     }
   }else if(sstv_info._sstv_fsm == SSTV_FSM_DMA){
     __HAL_DMA_ENABLE(sstv_info.AD9833_I->spi->hdmatx);
@@ -218,7 +218,7 @@ void SSTV_TIM_Loop_Callback(void){
     sstv_info._sstv_tx_state = SSTV_Idle;
     //printf("SSTV END\r\n");
   }else{
-    sendString("sstv loopcb err");
+    printf("sstv loopcb err");
   }
 }
 

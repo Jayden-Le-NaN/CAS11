@@ -34,11 +34,11 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
 
 // void DMA_TIM_SPI_HalfTxCplt(void)
 // {
-//     sendString("DMA TIM SPI HalfTxCplt\n");
+//     printf("DMA TIM SPI HalfTxCplt\n");
 // }
 
 // void DMA_TIM_SPI_TxCplt(void){
-//     sendString("DMA TIM SPI TxCplt\n");
+//     printf("DMA TIM SPI TxCplt\n");
 // }
 void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t Data){
     while(__HAL_SPI_GET_FLAG(sstv_tim_dma_spi, SPI_FLAG_TXE) == 0){}        // 等待上一轮传输完成
@@ -64,18 +64,18 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if(ad9833_obj1->spi != NULL){
         if(HAL_SPI_DeInit(ad9833_obj1->spi) != HAL_OK){
             //printf("HAL_SPI_DeInit error\r\n");
-            sendString("HAL_SPI_DeInit error\n");
+            printf("HAL_SPI_DeInit error\n");
             return UTILS_ERROR;
         }   
     }
     if(ad9833_obj2->spi != NULL){
         if(HAL_SPI_DeInit(ad9833_obj2->spi) != HAL_OK){
             //printf("HAL_SPI_DeInit error\r\n");
-            sendString("HAL_SPI_DeInit error\n");
+            printf("HAL_SPI_DeInit error\n");
             return UTILS_ERROR;
         }   
     }
-    sendString("AD9833_Init_Tx_DMA_TIM\n");
+    printf("AD9833_Init_Tx_DMA_TIM\n");
     // printf("here\r\n");
     ad9833_tim_dma_flag = USE_TIM_DMA;                                      //标记使用TIM DMA，在HAL_SPI_MspInit中执行对应代码
 
@@ -98,7 +98,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_SPI_Init(ad9833_tim_dma_spi) != HAL_OK)
     {
         //Error_Handler();
-        sendString("HAL_SPI_Init error\n");
+        printf("HAL_SPI_Init error\n");
         //printf("HAL_SPI_Init error\r\n");
         return UTILS_ERROR;
     }
@@ -116,7 +116,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIM_Base_Init(ad9833_tim) != HAL_OK)
     {
         //Error_Handler();
-        sendString("HAL_TIM_Base_Init error\n");
+        printf("HAL_TIM_Base_Init error\n");
         //printf("HAL_TIM_Base_Init error\r\n");
         return UTILS_ERROR;
     }
@@ -124,7 +124,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIM_ConfigClockSource(ad9833_tim, &sClockSourceConfig) != HAL_OK)
     {
         //Error_Handler();
-        sendString("HAL_TIM_ConfigClockSource error\n");
+        printf("HAL_TIM_ConfigClockSource error\n");
         //printf("HAL_TIM_ConfigClockSource error\r\n");
         return UTILS_ERROR;
     }
@@ -133,7 +133,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIMEx_MasterConfigSynchronization(ad9833_tim, &sMasterConfig) != HAL_OK)
     {
         //Error_Handler();
-        sendString("HAL_TIMEx_MasterConfigSynchronization error\n");
+        printf("HAL_TIMEx_MasterConfigSynchronization error\n");
         //printf("HAL_TIMEx_MasterConfigSynchronization error\r\n");
         return UTILS_ERROR;
     }

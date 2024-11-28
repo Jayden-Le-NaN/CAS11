@@ -240,26 +240,3 @@ uint32_t UTILS_GetSysTick(void) {
     return SysTick->VAL;
 }
 
-/**
- * @brief               串口发送字符串
- * @param   str         待发送的字符串
- * @param   huart       UART Handle
- * @return              HAL status
- */
-HAL_StatusTypeDef UTILS_SendString(const char *str, UART_HandleTypeDef *huart) {
-  uint8_t packet[256]; // 根据需要调整大小
-  uint16_t index = 0;
-
-  while (*str) {
-    packet[index++] = (uint8_t)(*str); // 添加字符
-    str++;
-
-    if (index >= sizeof(packet)) {
-      return HAL_ERROR;
-    }
-  }
-
-  HAL_StatusTypeDef status;
-  status = HAL_UART_Transmit(&huart1, packet, index, HAL_MAX_DELAY);
-  return status;
-}

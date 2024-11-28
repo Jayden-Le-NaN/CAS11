@@ -135,6 +135,7 @@ NVIC.DMA1_Channel4_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
 NVIC.DMA1_Channel5_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
 NVIC.DMA2_Channel1_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
 NVIC.DMA2_Channel2_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
+NVIC.DMA2_Channel3_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
 NVIC.DMA2_Channel6_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
 NVIC.DMA2_Channel7_IRQn=true\:0\:0\:false\:false\:true\:false\:true\:true
 NVIC.DebugMonitor_IRQn=true\:0\:0\:false\:false\:true\:false\:false\:false
