@@ -40,25 +40,85 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
 // void DMA_TIM_SPI_TxCplt(void){
 //     printf("DMA TIM SPI TxCplt\n");
 // }
-void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t Data){
+
+/**
+ * @brief   通过SPI的方式写16bit
+ * @param   sstv_tim_dma_spi  :  SPI句柄
+ * @param   Data              :  需要写入的数据
+ * @retval  None
+ */
+void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data){
     while(__HAL_SPI_GET_FLAG(sstv_tim_dma_spi, SPI_FLAG_TXE) == 0){}        // 等待上一轮传输完成
-    sstv_tim_dma_spi->Instance->DR = Data;
+    sstv_tim_dma_spi->Instance->DR = *Data;
+    printf("spi %x\r\n", *Data);
 }
 
-void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t* frqh, uint16_t* frql){
-    SPI_Write_Half_Word(sstv_tim_dma_spi, AD9833_REG_B28);// | AD9833_OUT_FREQ0 | AD9833_OUT_PHASE0
-    SPI_Write_Half_Word(sstv_tim_dma_spi, *frql);
-    SPI_Write_Half_Word(sstv_tim_dma_spi, *frqh);
+#define AD9833_SCLK(level)      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, level);
+#define AD9833_SDATA(level)     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3, level);
+#define AD9833_FSYNC(level)     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, level);
+
+/**
+ * @brief   通过低速IO口写16位数据
+ * @param   Data              :  需要写入的数据
+ * @retval  None
+ */
+void Write_Half_Word(uint16_t *Data){
+    int i;
+    uint16_t temp = *Data;
+    AD9833_SCLK(GPIO_PIN_SET);
+    HAL_Delay(1);
+    AD9833_FSYNC(GPIO_PIN_SET);
+    HAL_Delay(1);
+    AD9833_FSYNC(GPIO_PIN_RESET);
+    //写16位数据
+    for(i=0;i<16;i++)
+    {
+        
+        if (temp & 0x8000){
+            AD9833_SDATA(GPIO_PIN_SET);
+        } 
+        else{
+            AD9833_SDATA(GPIO_PIN_RESET);
+        }
+        HAL_Delay(1);
+        AD9833_SCLK(GPIO_PIN_RESET);
+        HAL_Delay(1);
+        AD9833_SCLK(GPIO_PIN_SET);
+        temp<<=1;
+    }
+    AD9833_FSYNC(GPIO_PIN_SET);
 }
 
 
 /**
- * @brief               初始化定时器触发DMA传输频率数据至SPI
- * @param ad9833_obj    ad9833 指定信息
- * @param Prescaler     定时器预分频器
- * @param Period        定时器周期
- * @return              UTILS_OK    : 正常
- *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输
+ * @brief   通过SPI将DDS的整数和分数两个部分都写入到AD9833
+ * @param   sstv_tim_dma_spi  :  SPI句柄
+ * @param   frqh              :  频率寄存器高14位
+ * @param   frql              :  频率寄存器高低14位
+ * @retval  None
+ */
+void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh, uint16_t *frql){
+    uint16_t temp = AD9833_REG_B28;
+    // 测试用的低速方式
+    Write_Half_Word(&temp);// 低速IO操作
+    Write_Half_Word(frql);
+    Write_Half_Word(frqh);
+    // 高速方式
+    // SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);// | AD9833_OUT_FREQ0 | AD9833_OUT_PHASE0
+    // SPI_Write_Half_Word(sstv_tim_dma_spi, frql);
+    // SPI_Write_Half_Word(sstv_tim_dma_spi, frqh);
+}
+
+
+
+/**
+ * @brief  Initialize AD9833 SPI and TIM for DMA transfer.
+ * @param  ad9833_obj1:  AD9833 object 1
+ * @param  ad9833_obj2:  AD9833 object 2
+ * @param  ad9833_tim_dma_spi:  SPI handle for DMA transfer
+ * @param  ad9833_tim:  TIM handle for DMA transfer
+ * @retval UTILS_OK:  Successfully initialized
+ * @retval UTILS_ERROR:  Initialization failed
  */
 UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info_Struct* ad9833_obj2, SPI_HandleTypeDef* ad9833_tim_dma_spi, TIM_HandleTypeDef* ad9833_tim) {
     if(ad9833_obj1->spi != NULL){
@@ -88,7 +148,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     ad9833_tim_dma_spi->Init.CLKPolarity = SPI_POLARITY_HIGH;
     ad9833_tim_dma_spi->Init.CLKPhase = SPI_PHASE_1EDGE;
     ad9833_tim_dma_spi->Init.NSS = SPI_NSS_SOFT;
-    ad9833_tim_dma_spi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+    ad9833_tim_dma_spi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
     ad9833_tim_dma_spi->Init.FirstBit = SPI_FIRSTBIT_MSB;
     ad9833_tim_dma_spi->Init.TIMode = SPI_TIMODE_DISABLE;
     ad9833_tim_dma_spi->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

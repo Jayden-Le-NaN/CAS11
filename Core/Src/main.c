@@ -259,15 +259,15 @@ int main(void)
 
 
 
-  ring_buffer_init(&uart1_rx_rb, uart1_rx_rb_buffer, sizeof(uart1_rx_rb_buffer) / sizeof(uart1_rx_rb_buffer[0]));
-  ring_buffer_init(&uart1_rx_event_rb, uart1_rx_event_rb_buffer, sizeof(uart1_rx_event_rb_buffer) / sizeof(uart1_rx_event_rb_buffer[0]));
-  ring_buffer_init(&uart1_tx_rb, uart1_tx_buffer, sizeof(uart1_tx_rb_buffer) / sizeof(uart1_tx_rb_buffer[0]));
-  ring_buffer_init(&uart1_tx_event_rb, uart1_tx_event_rb_buffer, sizeof(uart1_tx_event_rb_buffer) / sizeof(uart1_tx_event_rb_buffer[0]));
+  // ring_buffer_init(&uart1_rx_rb, uart1_rx_rb_buffer, sizeof(uart1_rx_rb_buffer) / sizeof(uart1_rx_rb_buffer[0]));
+  // ring_buffer_init(&uart1_rx_event_rb, uart1_rx_event_rb_buffer, sizeof(uart1_rx_event_rb_buffer) / sizeof(uart1_rx_event_rb_buffer[0]));
+  // ring_buffer_init(&uart1_tx_rb, uart1_tx_buffer, sizeof(uart1_tx_rb_buffer) / sizeof(uart1_tx_rb_buffer[0]));
+  // ring_buffer_init(&uart1_tx_event_rb, uart1_tx_event_rb_buffer, sizeof(uart1_tx_event_rb_buffer) / sizeof(uart1_tx_event_rb_buffer[0]));
 
   // HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
   // 使用DMA进行接收,保证数据不会丢失
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
-  at_obj_init(&at, &at_adapter);
+  // HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
+  // at_obj_init(&at, &at_adapter);
 
 
   uint32_t uart1_tx_data_size = 0;
@@ -348,12 +348,36 @@ int main(void)
   HAL_Delay(1000);
   AD9833_Init(&ad9833_i, NULL, GPIO_PIN_2, GPIOB, 25000000);
   AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
-  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
+/*
+  仅测试用，低速IO操作写
+  PB10->CLK
+  PC3->DATA
+*/
+  UTILS_RCC_GPIO_Enable(GPIOB);
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  UTILS_RCC_GPIO_Enable(GPIOC);
+  
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  //-------------------------------------------
+
+  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);   // FSYNC默认高
   HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
-  HAL_Delay(1);
+  HAL_Delay(1000);
   
   SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q);
   
+  // 测试：在SSTV_Transmit()放了一个死循环，周期性生成1k和2kHz的信号（25MHz晶振时），11.28晚上新焊的蓝牙模块把MCU的8M晶振给DDS了，卸下来的25MHz晶振在焊接台上
   UTILS_Status util = SSTV_Transmit();
   if(util == UTILS_OK){
     // sendString("1\r\n");
@@ -365,24 +389,24 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-        if (ring_buffer_get(&uart1_rx_event_rb, (uint8_t*)&uart1_rx_data_size, 4) != 0) {
-        at_recv_task(&at, uart1_rx_data_size);
-    }
+    // if (ring_buffer_get(&uart1_rx_event_rb, (uint8_t*)&uart1_rx_data_size, 4) != 0) {
+    //     at_recv_task(&at, uart1_rx_data_size);
+    // }
 
-    if (ring_buffer_get(&uart1_tx_event_rb, (uint8_t*)&uart1_tx_data_size, 4) != 0) {
-        ring_buffer_get(&uart1_tx_rb, uart1_tx_buffer, uart1_tx_data_size);
-        HAL_UART_Transmit(&huart1, uart1_tx_buffer, uart1_tx_data_size, HAL_MAX_DELAY);
-    }
-      /*
-    /*AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[0], 1, UTILS_DMA);
-    HAL_Delay(1000);
-    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[1], 1, UTILS_DMA);
-    HAL_Delay(1000);
-    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[2], 1, UTILS_DMA);
-    HAL_Delay(1000);
-    AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[3], 1, UTILS_DMA);
-    HAL_Delay(1000);
-    */
+    // if (ring_buffer_get(&uart1_tx_event_rb, (uint8_t*)&uart1_tx_data_size, 4) != 0) {
+    //     ring_buffer_get(&uart1_tx_rb, uart1_tx_buffer, uart1_tx_data_size);
+    //     HAL_UART_Transmit(&huart1, uart1_tx_buffer, uart1_tx_data_size, HAL_MAX_DELAY);
+    // }
+  
+    // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[0], 1, UTILS_DMA);
+    // HAL_Delay(1000);
+    // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[1], 1, UTILS_DMA);
+    // HAL_Delay(1000);
+    // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[2], 1, UTILS_DMA);
+    // HAL_Delay(1000);
+    // AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq_list[3], 1, UTILS_DMA);
+    // HAL_Delay(1000);
+    
 
 
     //------------------------------LTC5589测试------------------------------

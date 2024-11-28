@@ -269,7 +269,7 @@ void TIM2_IRQHandler(void)
       }else if((sstv_info._sstv_fsm == SSTV_FSM_Loop) | (sstv_info._sstv_fsm == SSTV_FSM_DMA) | (sstv_info._sstv_fsm == SSTV_FSM_END)){
         SSTV_TIM_Loop_Callback();
       }else{
-        printf("sstv fsm err");
+        printf("sstv fsm err\r\n");
       }
 
     }
@@ -277,7 +277,7 @@ void TIM2_IRQHandler(void)
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
-    printf("TIM2 normal irq\n");
+    printf("TIM2 normal irq\r\n");
   }
   /* USER CODE END TIM2_IRQn 1 */
 }
