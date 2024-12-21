@@ -240,6 +240,25 @@ uint32_t UTILS_GetSysTick(void) {
     return SysTick->VAL;
 }
 
+uint32_t Calculate_ElapsedTime(uint32_t start, uint32_t end) {
+    uint32_t elapsed;
+
+    // SysTick的倒计数器为24位，最大值是0xFFFFFF
+    uint32_t tick_reload = SysTick->LOAD + 1; // 计数器重装值（即一个周期的计数）
+
+    if (start >= end) {
+        // 没有发生溢出
+        elapsed = end + (tick_reload - start);
+    } else {
+        // 发生溢出，需要考虑跨周期
+        elapsed = end - start;
+    }
+
+    // 转换为微秒，MCU_FREQUENCY_MHZ是每微秒的计数
+    elapsed = elapsed / MCU_FREQUENCY_MHZ;
+
+    return elapsed;
+}
 
 void sendString(const char* str) {
     uint8_t packet[256]; // 根据需要调整大小
@@ -263,3 +282,102 @@ void sendString(const char* str) {
     // 发送数据
     HAL_UART_Transmit(&huart1, packet, index, HAL_MAX_DELAY);
 }
+
+#ifdef TEST_MODE
+
+#define _LOAD_TIM_REG do{osc_trigger_obj->osc_tim->Instance->EGR = TIM_EGR_UG; if (HAL_IS_BIT_SET(osc_trigger_obj->osc_tim->Instance->SR, TIM_FLAG_UPDATE)){CLEAR_BIT(osc_trigger_obj->osc_tim->Instance->SR, TIM_FLAG_UPDATE);}}while(0)
+
+extern TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef* osc_tim = &htim3;
+
+UTILS_Status osc_trigger_init(OSC_Trigger* osc_trigger_obj, uint32_t osc_trigger_pin, GPIO_TypeDef* osc_trigger_pin_type, OSC_TRIGGER_EDGE trigger_edge){
+    osc_trigger_obj->osc_trigger_pin = osc_trigger_pin;
+    osc_trigger_obj->osc_trigger_pin_type = osc_trigger_pin_type;
+    osc_trigger_obj->trigger_edge = trigger_edge;
+    osc_trigger_obj->osc_tim = osc_tim;
+
+    UTILS_RCC_GPIO_Enable(osc_trigger_obj->osc_trigger_pin_type);
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    
+    GPIO_InitStruct.Pin = osc_trigger_obj->osc_trigger_pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(osc_trigger_obj->osc_trigger_pin_type, &GPIO_InitStruct);
+    // 设置初始状态
+    if(osc_trigger_obj->trigger_edge == RISING_EDGE){
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_RESET);
+    }else{
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_SET);
+    }
+
+    __HAL_TIM_URS_ENABLE(osc_trigger_obj->osc_tim);    // 重要，否则_LOAD_TIM_REG会产生中断
+    __HAL_TIM_ENABLE_IT(osc_trigger_obj->osc_tim, TIM_IT_UPDATE);//enable tim interrupt
+    _LOAD_TIM_REG;
+    return UTILS_OK;
+}
+void osc_trigger_prepare(OSC_Trigger* osc_trigger_obj){
+    __HAL_TIM_DISABLE(osc_trigger_obj->osc_tim);
+    __HAL_TIM_SetCounter(osc_trigger_obj->osc_tim, 0);
+    __HAL_TIM_ENABLE_IT(osc_trigger_obj->osc_tim, TIM_IT_UPDATE);//enable tim interrupt
+    _LOAD_TIM_REG;
+    if(osc_trigger_obj->trigger_edge == RISING_EDGE){
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_RESET);
+    }else{
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_SET);
+    }
+}
+void osc_trigger_start(OSC_Trigger* osc_trigger_obj){
+    if(osc_trigger_obj->trigger_edge == RISING_EDGE){
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_SET);
+    }else{
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_RESET);
+    }
+    __HAL_TIM_ENABLE(osc_trigger_obj->osc_tim);
+}
+// TODO: 放入定时器中断函数
+void osc_trigger_end(OSC_Trigger* osc_trigger_obj){
+    if(osc_trigger_obj->trigger_edge == RISING_EDGE){
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_RESET);
+    }else{
+        HAL_GPIO_WritePin(osc_trigger_obj->osc_trigger_pin_type, osc_trigger_obj->osc_trigger_pin, GPIO_PIN_SET);
+    }
+    __HAL_TIM_DISABLE_IT(osc_trigger_obj->osc_tim, TIM_IT_UPDATE);
+    _LOAD_TIM_REG;
+    __HAL_TIM_DISABLE(osc_trigger_obj->osc_tim);
+}
+
+UTILS_Status time_calculator_init(Time_Calculator* time_calculator_obj){
+    time_calculator_obj->start_time_us = 0;
+    time_calculator_obj->end_time_us = 0;
+    time_calculator_obj->start_time_ms = 0;
+    time_calculator_obj->end_time_ms = 0;
+    time_calculator_obj->interval = 0;
+    time_calculator_obj->status = UTILS_IDLE;
+}
+UTILS_Status time_calculator_start(Time_Calculator* time_calculator_obj){
+    if(time_calculator_obj->status == UTILS_IDLE){
+        time_calculator_obj->status = UTILS_BUSY;
+        time_calculator_obj->interval = 0;
+        time_calculator_obj->start_time_us = UTILS_GetSysTick();
+        time_calculator_obj->start_time_ms = HAL_GetTick();
+        return UTILS_OK;
+    }else{
+        return UTILS_ERROR;
+    }
+}
+UTILS_Status time_calculator_end(Time_Calculator* time_calculator_obj){
+    if(time_calculator_obj->status == UTILS_BUSY){
+        time_calculator_obj->end_time_us = UTILS_GetSysTick();
+        time_calculator_obj->end_time_ms = HAL_GetTick();
+        uint32_t interval_ms = time_calculator_obj->end_time_ms - time_calculator_obj->start_time_ms;
+        // time_calculator_obj->interval = Calculate_ElapsedTime(time_calculator_obj->start_time_us, time_calculator_obj->end_time_us);     // TODO: 处理us计算
+        time_calculator_obj->interval += interval_ms * 1000;
+        time_calculator_obj->status = UTILS_IDLE;
+        printf("start us: %d, end us: %d\r\n", time_calculator_obj->start_time_us, time_calculator_obj->end_time_us);
+        return UTILS_OK;
+    }else{
+        return UTILS_ERROR;
+    }
+}
+#endif

@@ -43,7 +43,7 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern SSTV_Info_Struct sstv_info;
-extern TIM_HandleTypeDef sstv_tim;
+extern TIM_HandleTypeDef htim2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,6 +66,7 @@ extern DMA_HandleTypeDef hdma_spi3_tx;
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
@@ -210,6 +211,7 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32l4xx.s).                    */
 /******************************************************************************/
+
 /**
   * @brief This function handles DMA1 channel3 global interrupt.
   */
@@ -260,9 +262,9 @@ void TIM2_IRQHandler(void)
   /* USER CODE BEGIN TIM2_IRQn 0 */
   //printf("T\r\n");
   if(sstv_info._sstv_tx_state == SSTV_Transmitting){
-    if ((sstv_tim.Instance->SR & (TIM_FLAG_UPDATE)) == (TIM_FLAG_UPDATE)){
-      __HAL_TIM_CLEAR_FLAG(&sstv_tim, TIM_FLAG_UPDATE);
-      //判断当前的进度
+    if ((htim2.Instance->SR & (TIM_FLAG_UPDATE)) == (TIM_FLAG_UPDATE)){
+      __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
+      // 判断当前的进度 
       if(sstv_info._sstv_fsm == SSTV_FSM_Header){
         SSTV_TIM_Header_Callback();
       }else if((sstv_info._sstv_fsm == SSTV_FSM_Loop) | (sstv_info._sstv_fsm == SSTV_FSM_DMA) | (sstv_info._sstv_fsm == SSTV_FSM_END)){
@@ -279,6 +281,20 @@ void TIM2_IRQHandler(void)
     printf("TIM2 normal irq\r\n");
   }
   /* USER CODE END TIM2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+
+  /* USER CODE END TIM3_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+  // printf("T3\r\n");
+  /* USER CODE END TIM3_IRQn 1 */
 }
 
 /**
