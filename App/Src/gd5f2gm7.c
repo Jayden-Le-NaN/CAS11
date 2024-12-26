@@ -9,9 +9,13 @@
 // Note             : 只有接收数据和发送数据使用DMA,像发送指令这些使用阻塞式发送
 //------------------------------------------------------------
 
+//-------------------------------全局变量-------------------------------
+extern Time_Calculator time_calculator_obj;
+
 //------------------------------仅内部使用,外部不可用------------------------------
 #define GD5F2GM7_Transmit_Receive_Start()   HAL_GPIO_WritePin(gd5f2gm7_obj->cs_pin_type, gd5f2gm7_obj->cs_pin, GPIO_PIN_RESET)
 #define GD5F2GM7_Transmit_Receive_Stop()    HAL_GPIO_WritePin(gd5f2gm7_obj->cs_pin_type, gd5f2gm7_obj->cs_pin, GPIO_PIN_SET)
+#define _LOAD_TIM_REG(tim)                       do{tim->Instance->EGR = TIM_EGR_UG; if (HAL_IS_BIT_SET(tim->Instance->SR, TIM_FLAG_UPDATE)){CLEAR_BIT(tim->Instance->SR, TIM_FLAG_UPDATE);}}while(0)
 //------------------------------仅内部使用,外部不可用------------------------------
 
 
@@ -24,12 +28,27 @@ void GD5F2GM7_Transmit_IRQ_Handler(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_Handl
     }
 }
 
-void GD5F2GM7_Receive_IRQ_Hanlder(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi) {
+void GD5F2GM7_Receive_IRQ_Handler(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi) {
     if (gd5f2gm7_obj->spi == spi) {
         gd5f2gm7_obj->_dma_fsm_state_receive = GD5F2GM7_DMA_Idle;
         if (gd5f2gm7_obj->_dma_fsm_state_transmit == GD5F2GM7_DMA_Idle)
             GD5F2GM7_Transmit_Receive_Stop();
     }
+    if(gd5f2gm7_obj->tim_usage == GD5F2GM7_USE_TIM){
+        gd5f2gm7_obj->tim_usage = GD5F2GM7_NOUSE_TIM;
+        __HAL_TIM_DISABLE(gd5f2gm7_obj->tim);
+        __HAL_TIM_URS_ENABLE(gd5f2gm7_obj->tim);    // 重要，否则_LOAD_TIM_REG会产生中断
+        __HAL_TIM_SET_COUNTER(gd5f2gm7_obj->tim, 0);
+        __HAL_TIM_SET_PRESCALER(gd5f2gm7_obj->tim, MCU_FREQUENCY_MHZ*1000 - 1);
+        __HAL_TIM_SetAutoreload(gd5f2gm7_obj->tim, gd5f2gm7_obj->tim_ms);
+        __HAL_TIM_ENABLE_IT(gd5f2gm7_obj->tim, TIM_IT_UPDATE);
+        _LOAD_TIM_REG(gd5f2gm7_obj->tim);
+        __HAL_TIM_ENABLE(gd5f2gm7_obj->tim);
+        // HAL_TIM_Base_Start_IT(gd5f2gm7_obj->tim);
+        // printf("ts\r\n");
+    }
+    // time_calculator_end(&time_calculator_obj);
+    // printf("time: %d us\r\n", time_calculator_obj.interval);
 }
 //------------------------------需要放入中断回调函数中的函数------------------------------
 
@@ -151,6 +170,19 @@ UTILS_Status GD5F2GM7_Get_Features(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint8_t r
     return status;
 }
 
+// UTILS_Status GD52GM7_Set_BlockProtection(GD5F2GM7_Info_Struct* gd5f2gm7_obj, BLOCKLOCK_Status status){
+//     uint8_t temp = 0x00;
+
+//     if(GD5F2GM7_Get_Features(gd5f2gm7_obj, 0xA0, &temp) != UTILS_OK){
+//         printf("GD5F2GM7_Get_Features err");
+//         return UTILS_ERROR;
+//     }
+//     if(temp)
+//     temp |= (uint8_t)status;
+
+//     GD5F2GM7_Set_Features(gd5f2gm7_obj, )
+// }
+
 /*
  * @brief               设置寄存器中的值
  * @param gd5f2gm7_obj  gd5f2gm7 指定信息
@@ -169,6 +201,15 @@ UTILS_Status GD5F2GM7_Set_Features(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint8_t r
     UTILS_Status status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, packet, 3);
     GD5F2GM7_Transmit_Receive_Stop();
     return status;
+}
+
+UTILS_Status GD5F2GM7_isBusy(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint8_t* bit_status){
+    if(GD5F2GM7_Get_Features(gd5f2gm7_obj, 0xC0, bit_status) != UTILS_OK){
+        return UTILS_ERROR;
+    }
+    // printf("%x\r\n", (*bit_status));
+    *bit_status &= OIP_MASK;
+    return UTILS_OK;
 }
 
 /*
@@ -202,7 +243,7 @@ UTILS_Status GD5F2GM7_PageRead_ToCache(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint3
  * @return              UTILS_OK    : 正常
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输
  */
-UTILS_Status GD5F2GM7_ReadFromCache(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* rx_data, uint32_t len, UTILS_CommunicationMode rx_mode) {
+UTILS_Status GD5F2GM7_ReadFromCache(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* rx_data, uint32_t len, UTILS_CommunicationMode rx_mode, GD5F2GM7_TIM tim_usage) {
     uint8_t packet[4];
     uint8_t command = GD5F2GM7_CMD_READ_FROM_CACHE;
     packet[0] = command;
@@ -220,8 +261,10 @@ UTILS_Status GD5F2GM7_ReadFromCache(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t
             status = GD5F2GM7_Receive_8bit_Array(gd5f2gm7_obj, rx_data, len);
             GD5F2GM7_Transmit_Receive_Stop();
         }
-        else if (rx_mode == UTILS_DMA)
+        else if (rx_mode == UTILS_DMA){
+            gd5f2gm7_obj->tim_usage = tim_usage;
             status = GD5F2GM7_Receive_8bit_Array_DMA(gd5f2gm7_obj, rx_data, len);
+        }
         else
             status = UTILS_ERROR;
     } while(0);
@@ -292,7 +335,7 @@ UTILS_Status GD5F2GM7_ReadUID(GD5F2GM7_Info_Struct* gd5f2gm7_obj) {
 }
 
 /*
- * @brief               把数据打到缓冲区中
+ * @brief               把整页数据打到缓冲区中
  * @param gd5f2gm7_obj  gd5f2gm7 指定信息
  * @param cache_addr    缓冲区地址
  * @param tx_data       需要发送的数据
@@ -304,6 +347,19 @@ UTILS_Status GD5F2GM7_ReadUID(GD5F2GM7_Info_Struct* gd5f2gm7_obj) {
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输或者是传输模式选择错误
  */
 UTILS_Status GD5F2GM7_ProgramLoad(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t cache_addr, uint8_t* tx_data, uint32_t len, UTILS_CommunicationMode tx_mode) {
+    uint8_t B0_reg = 0;
+    GD5F2GM7_Get_Features(gd5f2gm7_obj, 0xB0, &B0_reg);
+    uint8_t ECC_EN_feature = 0x10 & B0_reg;
+    // printf("B0_reg: %x\r\n", B0_reg);
+    // printf("ECC_EN_feature: %x\r\n", (!ECC_EN_feature));
+    if(ECC_EN_feature && (len != 2112)){
+        printf("Flash err: ECC enabled, len must be 2112\r\n");
+        return UTILS_ERROR;
+    }else if((!ECC_EN_feature) && len != 2176U){
+        printf("Flash err: ECC disabled, len must be 2176\r\n");
+        return UTILS_ERROR;
+    }
+    // if(cache_addr == 0)printf("%x\r\n", tx_data[3]);
     uint8_t packet[3];
     uint8_t command = GD5F2GM7_CMD_PROGRAM_LOAD;
     packet[0] = command;
@@ -343,7 +399,14 @@ UTILS_Status GD5F2GM7_ProgramExecute(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_
     for (uint8_t i = 1; i < 4; ++i)
         packet[i] = (uint8_t)(page_addr >> (24 - i * 8) & 0xFF);
     GD5F2GM7_Transmit_Receive_Start();
-    UTILS_Status status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, packet, 4);
+    UTILS_Status status = GD5F2GM7_WriteEnable(gd5f2gm7_obj);
+    GD5F2GM7_Transmit_Receive_Stop();       // 中间要把cs拉高
+    // TODO: check WEL bit
+    if(status == UTILS_ERROR){
+        return status;
+    }
+    GD5F2GM7_Transmit_Receive_Start();
+    status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, packet, 4);
     GD5F2GM7_Transmit_Receive_Stop();
     return status;
 }
@@ -403,7 +466,14 @@ UTILS_Status GD52GM7_BlockErase(GD5F2GM7_Info_Struct* gd5f2gm7_obj, uint32_t pag
     for (uint8_t i = 1; i < 4; ++i)
         packet[i] = (uint8_t)(page_addr >> (24 - i * 8) & 0xFF);
     GD5F2GM7_Transmit_Receive_Start();
-    UTILS_Status status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, packet, 4);
+    UTILS_Status status = GD5F2GM7_WriteEnable(gd5f2gm7_obj);
+    GD5F2GM7_Transmit_Receive_Stop();   // 中间需要把cs拉高
+    // TODO: check WEL bit
+    if(status == UTILS_ERROR){
+        return status;
+    }
+    GD5F2GM7_Transmit_Receive_Start();
+    status = GD5F2GM7_Transmit_8bit_Array(gd5f2gm7_obj, packet, 4);
     GD5F2GM7_Transmit_Receive_Stop();
     return status;
 }
@@ -544,13 +614,16 @@ UTILS_Status GD5F2GM7_DMA_ReceiveIsBusy(GD5F2GM7_Info_Struct* gd5f2gm7_obj) {
  * @param cs_pin_type   片选引脚的GPIO类型
  * @return              无
  */
-void GD5F2GM7_Init(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi, uint32_t cs_pin, GPIO_TypeDef* cs_pin_type) {
+void GD5F2GM7_Init(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi, uint32_t cs_pin, GPIO_TypeDef* cs_pin_type, TIM_HandleTypeDef* tim, uint16_t tim_ms) {
     //------------------------------数据挂载------------------------------
     gd5f2gm7_obj->spi = spi;
     gd5f2gm7_obj->cs_pin = cs_pin;
     gd5f2gm7_obj->cs_pin_type = cs_pin_type;
+    gd5f2gm7_obj->tim = tim;
+    gd5f2gm7_obj->tim_usage = GD5F2GM7_NOUSE_TIM;
+    gd5f2gm7_obj->tim_ms = tim_ms;
 
-    //------------------------------初始化状态机------------------------------
+    //------------------------------初始化状态机----------------------------
     gd5f2gm7_obj->_dma_fsm_state_transmit = GD5F2GM7_DMA_Idle;
     gd5f2gm7_obj->_dma_fsm_state_receive  = GD5F2GM7_DMA_Idle;
 
@@ -564,4 +637,8 @@ void GD5F2GM7_Init(GD5F2GM7_Info_Struct* gd5f2gm7_obj, SPI_HandleTypeDef* spi, u
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(gd5f2gm7_obj->cs_pin_type, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    HAL_GPIO_Init(gd5f2gm7_obj->cs_pin_type, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(gd5f2gm7_obj->cs_pin_type, GPIO_PIN_8, GPIO_PIN_SET);
 }

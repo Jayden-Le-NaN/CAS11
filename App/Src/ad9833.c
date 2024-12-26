@@ -50,12 +50,12 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
 void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data){
     while(__HAL_SPI_GET_FLAG(sstv_tim_dma_spi, SPI_FLAG_TXE) == 0){}        // 等待上一轮传输完成
     sstv_tim_dma_spi->Instance->DR = *Data;
-    printf("spi %x\r\n", *Data);
+    // printf("spi %x\r\n", *Data);
 }
 
-#define AD9833_SCLK(level)      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, level);
-#define AD9833_SDATA(level)     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3, level);
-#define AD9833_FSYNC(level)     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, level);
+#define AD9833_SCLK(level)      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, level);
+#define AD9833_SDATA(level)     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, level);
+#define AD9833_FSYNC(level)     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, level);
 
 /**
  * @brief   通过低速IO口写16位数据
@@ -100,13 +100,14 @@ void Write_Half_Word(uint16_t *Data){
 void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh, uint16_t *frql){
     uint16_t temp = AD9833_REG_B28;
     // 测试用的低速方式
-    Write_Half_Word(&temp);// 低速IO操作
-    Write_Half_Word(frql);
-    Write_Half_Word(frqh);
+    // Write_Half_Word(&temp);// 低速IO操作
+    // Write_Half_Word(frql);
+    // Write_Half_Word(frqh);
     // 高速方式
-    // SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);// | AD9833_OUT_FREQ0 | AD9833_OUT_PHASE0
-    // SPI_Write_Half_Word(sstv_tim_dma_spi, frql);
-    // SPI_Write_Half_Word(sstv_tim_dma_spi, frqh);
+    SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);// | AD9833_OUT_FREQ0 | AD9833_OUT_PHASE0
+    SPI_Write_Half_Word(sstv_tim_dma_spi, frql);
+    SPI_Write_Half_Word(sstv_tim_dma_spi, frqh);
+    // UTILS_Delay_us(5);
 }
 
 
@@ -121,22 +122,15 @@ void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh,
  * @retval UTILS_ERROR:  Initialization failed
  */
 UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info_Struct* ad9833_obj2, SPI_HandleTypeDef* ad9833_tim_dma_spi, TIM_HandleTypeDef* ad9833_tim) {
-    if(ad9833_obj1->spi != NULL){
-        if(HAL_SPI_DeInit(ad9833_obj1->spi) != HAL_OK){
-            //printf("HAL_SPI_DeInit error\r\n");
-            printf("HAL_SPI_DeInit error\n");
+    // SPI配置
+    if(ad9833_tim_dma_spi != NULL){
+        if(HAL_SPI_DeInit(ad9833_tim_dma_spi) != HAL_OK){
+            printf("HAL_SPI_DeInit error\r\n");
             return UTILS_ERROR;
         }   
     }
-    if(ad9833_obj2->spi != NULL){
-        if(HAL_SPI_DeInit(ad9833_obj2->spi) != HAL_OK){
-            //printf("HAL_SPI_DeInit error\r\n");
-            printf("HAL_SPI_DeInit error\n");
-            return UTILS_ERROR;
-        }   
-    }
-    printf("AD9833_Init_Tx_DMA_TIM\n");
-    // printf("here\r\n");
+    printf("AD9833_Init_Tx_DMA_TIM\r\n");
+    
     ad9833_tim_dma_flag = USE_TIM_DMA;                                      //标记使用TIM DMA，在HAL_SPI_MspInit中执行对应代码
 
     ad9833_obj1->spi = ad9833_tim_dma_spi;
@@ -148,7 +142,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     ad9833_tim_dma_spi->Init.CLKPolarity = SPI_POLARITY_HIGH;
     ad9833_tim_dma_spi->Init.CLKPhase = SPI_PHASE_1EDGE;
     ad9833_tim_dma_spi->Init.NSS = SPI_NSS_SOFT;
-    ad9833_tim_dma_spi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+    ad9833_tim_dma_spi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
     ad9833_tim_dma_spi->Init.FirstBit = SPI_FIRSTBIT_MSB;
     ad9833_tim_dma_spi->Init.TIMode = SPI_TIMODE_DISABLE;
     ad9833_tim_dma_spi->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -158,12 +152,16 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_SPI_Init(ad9833_tim_dma_spi) != HAL_OK)
     {
         //Error_Handler();
-        printf("HAL_SPI_Init error\n");
-        //printf("HAL_SPI_Init error\r\n");
+        printf("HAL_SPI_Init error\r\n");
         return UTILS_ERROR;
     }
-    
-    //tim配置
+    // printf("HAL_SPI_Init ok\r\n");
+
+    /// TIM配置
+    if(HAL_TIM_Base_DeInit(ad9833_tim) != HAL_OK){
+        printf("HAL_TIM_Base_DeInit error\r\n");
+        return UTILS_ERROR;
+    }
     TIM_ClockConfigTypeDef sClockSourceConfig = {0};
     TIM_MasterConfigTypeDef sMasterConfig = {0};
 
@@ -176,16 +174,14 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIM_Base_Init(ad9833_tim) != HAL_OK)
     {
         //Error_Handler();
-        printf("HAL_TIM_Base_Init error\n");
-        //printf("HAL_TIM_Base_Init error\r\n");
+        printf("HAL_TIM_Base_Init error\r\n");
         return UTILS_ERROR;
     }
     sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
     if (HAL_TIM_ConfigClockSource(ad9833_tim, &sClockSourceConfig) != HAL_OK)
     {
         //Error_Handler();
-        printf("HAL_TIM_ConfigClockSource error\n");
-        //printf("HAL_TIM_ConfigClockSource error\r\n");
+        printf("HAL_TIM_ConfigClockSource error\r\n");
         return UTILS_ERROR;
     }
     sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
@@ -193,8 +189,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIMEx_MasterConfigSynchronization(ad9833_tim, &sMasterConfig) != HAL_OK)
     {
         //Error_Handler();
-        printf("HAL_TIMEx_MasterConfigSynchronization error\n");
-        //printf("HAL_TIMEx_MasterConfigSynchronization error\r\n");
+        printf("HAL_TIMEx_MasterConfigSynchronization error\r\n");
         return UTILS_ERROR;
     }
     
@@ -205,6 +200,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
 
 
 //---------------移植HAL_SPI_Transmit_DMA-----------------------
+    //TODO: hal lock返回值与utils不一致，考虑再封装一层
     __HAL_LOCK(ad9833_tim_dma_spi);//(ad9833_tim_dma_spi).Lock = HAL_LOCKED;
     //do{ if((ad9833_tim_dma_spi).Lock == HAL_LOCKED) { return HAL_BUSY; } else { (ad9833_tim_dma_spi).Lock = HAL_LOCKED; } }while (0);//lock spi
     __HAL_SPI_DISABLE(ad9833_tim_dma_spi);//disable spi
@@ -230,6 +226,8 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     //((ad9833_tim_dma_spi.Instance->CR2) |= ((0x1UL << (1U))));//enable dma tx request
 
 //----------------------------configure timer-----------------
+    //TODO: tim在sstv结束时解锁
+    __HAL_LOCK(ad9833_tim);
     __HAL_TIM_DISABLE(ad9833_tim);
     __HAL_TIM_SetCounter(ad9833_tim, 0);
     __HAL_TIM_ENABLE_DMA(ad9833_tim, TIM_DMA_UPDATE);  //tim dma trigger
@@ -358,10 +356,17 @@ static UTILS_Status AD9833_RegisterWrite(AD9833_Info_Struct* ad9833_obj, uint16_
 }
 
 void AD9833_FrequencyConversion_2Reg(AD9833_Info_Struct* ad9833_obj, uint16_t* raw_freq, uint16_t* frqh, uint16_t* frql){
+    if(raw_freq == NULL || ad9833_obj == NULL){
+        return;
+    }
     double freq_scal_factor = 268435456.0 / ad9833_obj->crystal_oscillator_frequency;
     uint32_t val = (uint32_t)(*raw_freq * freq_scal_factor);
-    *frqh |= (uint16_t)((val & 0xFFFC000) >> 14);
-    *frql |= (uint16_t)(val & 0x3FFF);
+    if(frqh != NULL){
+        *frqh |= (uint16_t)((val & 0xFFFC000) >> 14);
+    }
+    if(frql != NULL){
+        *frql |= (uint16_t)(val & 0x3FFF);
+    }
 }
 
 /*

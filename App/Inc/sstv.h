@@ -5,6 +5,7 @@
 #include "ad9833.h"
 #include "stm32l4xx_hal_spi.h"
 #include "sstv_mode_def.h"
+#include "gd5f2gm7.h"
 
 #define     SSTV_UNUSED     0xffff                         //模式中未用到的配置信息赋值
 
@@ -83,18 +84,20 @@ typedef enum {
  */
 typedef struct {
     /// @public
-    AD9833_Info_Struct*          AD9833_I;                          // 同相路DDS
-    AD9833_Info_Struct*          AD9833_Q;                          // 正交路DDS
-    SSTV_MODE_Struct*            sstv_mode;                         // SSTV模式
-    uint16_t*                    tx_buffer_ptr;                     // 指向申请的buffer
+    AD9833_Info_Struct*             AD9833_I;                          // 同相路DDS
+    AD9833_Info_Struct*             AD9833_Q;                          // 正交路DDS
+    SSTV_MODE_Struct*               sstv_mode;                         // SSTV模式
+    uint16_t*                       tx_buffer_ptr;                     // 指向申请的buffer
+    GD5F2GM7_Info_Struct*           gd5f2gm7_obj;
     //void (*TxISR)(struct __SPI_HandleTypeDef *hspi);
 
-    SSTV_STAT                    _sstv_tx_state;
-    SSTV_FSM                     _sstv_fsm;
-    uint8_t                      _header_index;
-    uint8_t                      _loop_index;
-    uint8_t                      _pulse_porch_index;
-    uint16_t                     _line_sended;
+    SSTV_STAT                       _sstv_tx_state;
+    SSTV_FSM                        _sstv_fsm;
+    uint8_t                         _header_index;
+    uint8_t                         _loop_index;
+    uint8_t                         _pulse_porch_index;
+    uint16_t                        _line_sended;
+    uint16_t                        _flash_RA;
 
 //-------------------sstv模式配置信息-----------------
     // uint16_t                     _sstv_dma_line_cnt;                // sstv的行数
@@ -117,9 +120,9 @@ typedef struct {
 
 }SSTV_Info_Struct;
 
+UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj);
 
-
-UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q);
+UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q, GD5F2GM7_Info_Struct *gd5f2gm7_obj);
 UTILS_Status SSTV_Transmit(void);
 void SSTV_TIM_Header_Callback(void);
 void SSTV_TIM_Loop_Callback(void);

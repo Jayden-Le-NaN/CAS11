@@ -36,19 +36,19 @@ SSTV_MODE_Struct PD120_MODE = {
 uint16_t SCT1_header_psc[14] = {8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1, 8000-1};
 uint16_t SCT1_header_arr[14] = {3000-1, 100-1, 3000-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 300-1, 90-1};
 uint16_t SCT1_header_frq[14] = {1900, 1200, 1900, 1200, 1300, 1300, 1100, 1100, 1100, 1100, 1300, 1300, 1200, 1200};
-uint16_t SCT1_pulse_porch_arr_ptr1[1] = {15-1};     // 1.5ms
-uint16_t SCT1_pulse_porch_psc_ptr1[1] = {8000-1};
+uint16_t SCT1_pulse_porch_arr_ptr1[1] = {6000-1+0};     // 1.5ms TODO: 15-1
+uint16_t SCT1_pulse_porch_psc_ptr1[1] = {20-1};
 uint16_t SCT1_pulse_porch_frq_ptr1[1] = {1500};
-uint16_t SCT1_pulse_porch_arr_ptr2[1] = {15-1};     // 1.5ms
-uint16_t SCT1_pulse_porch_psc_ptr2[1] = {8000-1};
+uint16_t SCT1_pulse_porch_arr_ptr2[1] = {6000-1-0};     // 1.5ms
+uint16_t SCT1_pulse_porch_psc_ptr2[1] = {20-1};
 uint16_t SCT1_pulse_porch_frq_ptr2[1] = {1500};
-uint16_t SCT1_pulse_porch_arr_ptr3[2] = {90-1, 15-1};
-uint16_t SCT1_pulse_porch_psc_ptr3[2] = {8000-1, 8000-1};
+uint16_t SCT1_pulse_porch_arr_ptr3[2] = {36000-1, 6000-1};//-1800
+uint16_t SCT1_pulse_porch_psc_ptr3[2] = {20-1, 20-1};
 uint16_t SCT1_pulse_porch_frq_ptr3[2] = {1200, 1500};
 uint16_t SCT1_pulse_porch_num[4] = {1, 1, 2, 0};
 SSTV_MODE_Struct SCT1_MODE = {
     .sstv_mode = SCT1,
-    .sstv_dma_line_cnt = 256,           // including 16 line header
+    .sstv_dma_line_cnt = 256,           //256 including 16 line header TODO:
     .sstv_dma_line_length = 320*3,
 
     .header_psc = SCT1_header_psc,//psc 8000 ->10kHz 100us
@@ -62,8 +62,8 @@ SSTV_MODE_Struct SCT1_MODE = {
     .pulse_porch_num = SCT1_pulse_porch_num,
     .loop_num = 3,
     //432us per color pixel -> 3 spi writes
-    .dma_psc = 80-1,        // 1us
-    .dma_arr = 144-1
+    .dma_psc = 20-1,        // 1us
+    .dma_arr = 576-1
 };
 
 #endif

@@ -7,21 +7,25 @@
 //------------------------------公用宏------------------------------
 // #define MCU_STM32F4XX
 #define MCU_STM32L4XX
+#define TEST_MODE
 
-#define MCU_FREQUENCY_MHZ       168         // STM32 系统时钟主频
+
 #define PRINT_BUFFER_SIZE       256U        // printf 的缓冲区大小
 
 //------------------------------标准库(C语言)------------------------------
 #include "stdarg.h"
 #include "stdint.h"
 #include "stdbool.h"
+#include <string.h>
 
 //------------------------------HAL库------------------------------
 #ifdef MCU_STM32F4XX
+#define MCU_FREQUENCY_MHZ       168         // STM32 系统时钟主频
 #include "stm32f4xx.h"
 #endif
 
 #ifdef MCU_STM32L4XX
+#define MCU_FREQUENCY_MHZ       80          // STM32 系统时钟主频
 #include "stm32l4xx_hal.h"
 #endif
 
@@ -31,6 +35,7 @@ typedef enum {
     UTILS_ERROR = 0x01,
     UTILS_WORKING = 0x02,
     UTILS_BUSY  = 0x03,
+    UTILS_IDLE = 0x04,
 }UTILS_Status;
 
 typedef enum { 
@@ -80,10 +85,55 @@ UTILS_Status UTILS_WriteBit_Zone_32bit(uint32_t* data, uint8_t msb, uint8_t lsb,
 
 int32_t UTILS_Ceil(double data);
 int32_t UTILS_Log2(uint32_t value);
-
+//----------------------------------调试函数-----------------------------------
 uint32_t UTILS_GetSysTick(void);
-
+uint32_t Calculate_ElapsedTime(uint32_t start, uint32_t end);
+void sendString(const char* str);
 
 void printf(const char *format, ...);
+
+#ifdef TEST_MODE
+
+#define CAL_TIME
+// #define OSC_TRIGGER_TEST
+// #define AT_TEST
+#define SSTV_TEST
+#define FLASH_TEST
+// #define MRAM_TEST
+// #define LTC5589_TEST
+// #define ADF4252_TEST
+// #define AD9833_TEST
+
+//----------------------------------示波器触发源-----------------------------------
+typedef enum{
+    RISING_EDGE,
+    FALLING_EDGE
+}OSC_TRIGGER_EDGE;
+
+// 给示波器采样的触发信号
+typedef struct {
+    uint32_t                    osc_trigger_pin;                          // 信号同步引脚
+    GPIO_TypeDef*               osc_trigger_pin_type;                     // 信号同步引脚的类型
+    TIM_HandleTypeDef*          osc_tim;
+    OSC_TRIGGER_EDGE            trigger_edge;
+}OSC_Trigger;
+UTILS_Status osc_trigger_init(OSC_Trigger* osc_trigger_obj, uint32_t osc_trigger_pin, GPIO_TypeDef* osc_trigger_pin_type, OSC_TRIGGER_EDGE trigger_edge);
+void osc_trigger_prepare(OSC_Trigger* osc_trigger_obj);
+void osc_trigger_start(OSC_Trigger* osc_trigger_obj);
+void osc_trigger_end(OSC_Trigger* osc_trigger_obj);
+
+//----------------------------------计算程序执行时间-----------------------------------
+typedef struct{
+    uint32_t start_time_us;
+    uint32_t end_time_us;
+    uint32_t start_time_ms;
+    uint32_t end_time_ms;
+    UTILS_Status status;
+    uint32_t interval;
+}Time_Calculator;
+UTILS_Status time_calculator_init(Time_Calculator* time_calculator_obj);
+UTILS_Status time_calculator_start(Time_Calculator* time_calculator_obj);
+UTILS_Status time_calculator_end(Time_Calculator* time_calculator_obj);
+#endif
 
 #endif
