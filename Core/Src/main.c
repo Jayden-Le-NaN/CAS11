@@ -46,6 +46,7 @@ AD9833_Info_Struct ad9833_q;
 OSC_Trigger osc_trigger_obj;
 Time_Calculator time_calculator_obj;
 extern SSTV_Info_Struct sstv_info;
+extern uint16_t test_point[20];
 
 // urc �?
 
@@ -182,8 +183,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
       // __HAL_TIM_DISABLE_IT(sstv_info.gd5f2gm7_obj->tim, TIM_IT_UPDATE);
       // _LOAD_TIM_REG(sstv_info.gd5f2gm7_obj->tim);
       __HAL_TIM_DISABLE(sstv_info.gd5f2gm7_obj->tim);
+      
       sstv_info._flash_RA += 1;
       GD5F2GM7_PageRead_ToCache(sstv_info.gd5f2gm7_obj, sstv_info._flash_RA);
+      test_point[13]++;
       // printf("tc\r\n");
     }
 }
@@ -290,6 +293,9 @@ int main(void)
     
   //------------------------------FLASH驱动测试------------------------------
   #ifdef FLASH_TEST
+  AD9833_Init(&ad9833_i, NULL, GPIO_PIN_6, GPIOC, 25000000);
+  AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
+
   uint8_t reg_status = 0xaa;
   GD5F2GM7_Init(&gd5f2gm7_obj, &hspi1, GPIO_PIN_6, GPIOB, &htim3, 40);
   GD5F2GM7_Reset(&gd5f2gm7_obj);
@@ -321,7 +327,18 @@ int main(void)
   printf("F0: %x\r\n", reg_status);
   // HAL_UART_Transmit(&huart1, reg_status, 1, HAL_MAX_DELAY);
   #endif
-    
+  // for(uint32_t i = 0; i < 81920;i++){
+  //   printf("%x ", R1[i]);
+  // }
+  // printf("\r\n");
+  // for(uint32_t i = 0; i < 81920;i++){
+  //   printf("%x ", G1[i]);
+  // }
+  // printf("\r\n");
+  // for(uint32_t i = 0; i < 81920;i++){
+  //   printf("%x ", B1[i]);
+  // }
+  // printf("\r\n");
 
   //------------------------------本振ADF4252测试------------------------------
   #ifdef ADF4252_TEST
@@ -383,6 +400,7 @@ int main(void)
   #endif
 
   #ifdef SSTV_TEST
+  // 在flashtest配置了
   AD9833_Init(&ad9833_i, NULL, GPIO_PIN_6, GPIOC, 25000000);
   AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
 /*

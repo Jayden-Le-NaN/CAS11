@@ -107,6 +107,7 @@ void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh,
     SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);// | AD9833_OUT_FREQ0 | AD9833_OUT_PHASE0
     SPI_Write_Half_Word(sstv_tim_dma_spi, frql);
     SPI_Write_Half_Word(sstv_tim_dma_spi, frqh);
+    // UTILS_Delay_us(5);
 }
 
 
@@ -141,7 +142,7 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     ad9833_tim_dma_spi->Init.CLKPolarity = SPI_POLARITY_HIGH;
     ad9833_tim_dma_spi->Init.CLKPhase = SPI_PHASE_1EDGE;
     ad9833_tim_dma_spi->Init.NSS = SPI_NSS_SOFT;
-    ad9833_tim_dma_spi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+    ad9833_tim_dma_spi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
     ad9833_tim_dma_spi->Init.FirstBit = SPI_FIRSTBIT_MSB;
     ad9833_tim_dma_spi->Init.TIMode = SPI_TIMODE_DISABLE;
     ad9833_tim_dma_spi->Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -355,10 +356,17 @@ static UTILS_Status AD9833_RegisterWrite(AD9833_Info_Struct* ad9833_obj, uint16_
 }
 
 void AD9833_FrequencyConversion_2Reg(AD9833_Info_Struct* ad9833_obj, uint16_t* raw_freq, uint16_t* frqh, uint16_t* frql){
+    if(raw_freq == NULL || ad9833_obj == NULL){
+        return;
+    }
     double freq_scal_factor = 268435456.0 / ad9833_obj->crystal_oscillator_frequency;
     uint32_t val = (uint32_t)(*raw_freq * freq_scal_factor);
-    *frqh |= (uint16_t)((val & 0xFFFC000) >> 14);
-    *frql |= (uint16_t)(val & 0x3FFF);
+    if(frqh != NULL){
+        *frqh |= (uint16_t)((val & 0xFFFC000) >> 14);
+    }
+    if(frql != NULL){
+        *frql |= (uint16_t)(val & 0x3FFF);
+    }
 }
 
 /*

@@ -373,6 +373,8 @@ UTILS_Status time_calculator_end(Time_Calculator* time_calculator_obj){
         uint32_t interval_ms = time_calculator_obj->end_time_ms - time_calculator_obj->start_time_ms;
         // time_calculator_obj->interval = Calculate_ElapsedTime(time_calculator_obj->start_time_us, time_calculator_obj->end_time_us);     // TODO: 处理us计算
         time_calculator_obj->interval += interval_ms * 1000;
+        // time_calculator_obj->interval = time_calculator_obj->interval > (interval_ms * 1000) ? time_calculator_obj->interval : interval_ms;
+        // printf("interval: %d\r\n", interval_ms * 1000);
         time_calculator_obj->status = UTILS_IDLE;
         printf("start us: %d, end us: %d\r\n", time_calculator_obj->start_time_us, time_calculator_obj->end_time_us);
         return UTILS_OK;
