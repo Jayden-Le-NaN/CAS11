@@ -302,7 +302,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
       PC2      ------> SPI2_MISO
       PC3      ------> SPI2_MOSI
       */
-#define SPI2_CONF_1
+// #define SPI2_CONF_1 // 使用片外DDS
 #ifdef SPI2_CONF_1
       GPIO_InitStruct.Pin = GPIO_PIN_3;//GPIO_PIN_13|GPIO_PIN_15;
       GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -322,13 +322,21 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
       GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
       HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
       // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
-#else
+#else // 使用板上DDS
+      GPIO_InitStruct.Pin = GPIO_PIN_11;// osc trigger
+      GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+      GPIO_InitStruct.Pull = GPIO_NOPULL;
+      GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+      HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+
       GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_15;
       GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
       GPIO_InitStruct.Pull = GPIO_NOPULL;
       GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
       GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
       HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+      
 #endif
       /* SPI2_TX Init */
       hdma_spi2_tx.Instance = DMA1_Channel2;//DMA1_Channel5;//DMA1_Channel2;
