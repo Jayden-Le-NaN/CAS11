@@ -225,7 +225,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
     temp2 = (gd5_RA-gd5_RA_init)/3;
     if((gd5_RA-gd5_RA_init) == temp2*3){
       // G line
-      printf("G\r\n");
+      // printf("G\r\n");
       for(i=0;i<len;i++){
         temp = i/3;
         // printf("%d\r\n", (gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp);
@@ -233,11 +233,11 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
           sstv_tx_buffer[i] = AD9833_REG_B28;
         }else if(i == temp*3+1){
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_G1[(gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_G1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, NULL, &sstv_tx_buffer[i]);
         }else{
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_G1[(gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_G1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, &sstv_tx_buffer[i], NULL);
         }
       }
@@ -254,21 +254,28 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
       HAL_Delay(1);
     }else if((gd5_RA-gd5_RA_init) == temp2*3+1){
       // B line
-      printf("B\r\n");
+      // printf("B\r\n");
       for(i=0;i<len;i++){
         temp = i/3;
         if(i == temp*3){
           sstv_tx_buffer[i] = AD9833_REG_B28;
         }else if(i == temp*3+1){
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_B1[(gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_B1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          // if(temp2 == 0 || temp2 == 2){
+          //   // printf("%d ", raw_frq);
+          //   printf("%d ", temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp);
+          // }
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, NULL, &sstv_tx_buffer[i]);
         }else{
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_B1[(gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_B1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, &sstv_tx_buffer[i], NULL);
         }
       }
+      // if(temp2 == 0 || temp2 == 2){
+      //   printf("\r\n");
+      // }
       if(GD5F2GM7_ProgramLoad(gd5f2gm7_obj, 0, (uint8_t*)sstv_tx_buffer, 2112, UTILS_LOOP) != UTILS_OK){
         printf("GD5F2GM7_ProgramLoad error\r\n");
         return UTILS_ERROR;
@@ -282,18 +289,18 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
       HAL_Delay(1);
     }else{
       // R line
-      printf("R\r\n");
+      // printf("R\r\n");
       for(i=0;i<len;i++){
         temp = i/3;
         if(i == temp*3){
           sstv_tx_buffer[i] = AD9833_REG_B28;
         }else if(i == temp*3+1){
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_R1[(gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_R1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, NULL, &sstv_tx_buffer[i]);
         }else{
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_R1[(gd5_RA-gd5_RA_init)*sstv_info.sstv_mode->sstv_dma_line_length/9 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_R1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, &sstv_tx_buffer[i], NULL);
         }
       }
@@ -312,7 +319,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
   }
     
 #endif
-    uint32_t page_address = 2;
+    uint32_t page_address = 1;
     uint32_t data_address = 0;
     HAL_Delay(1);
 
@@ -513,7 +520,7 @@ UTILS_Status SSTV_Transmit(void){
   _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
   // sstv_info._header_index ++;
 
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+  // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
 
   return UTILS_OK;
 }
@@ -693,6 +700,10 @@ void SSTV_DMA_Cplt_Callback(void){
   test_point[19] += 1;
   // printf("D %d\r\n", test_point[19]);
   sstv_info._line_sended += 1;
+  // osc trigger for test
+  if(sstv_info._line_sended == 9){
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+  }
   if(sstv_info._line_sended < sstv_info.sstv_mode->sstv_dma_line_cnt * sstv_info.sstv_mode->loop_num){
     // 还没发完
     if(sstv_info._loop_index < sstv_info.sstv_mode->loop_num && sstv_info.sstv_mode->pulse_porch_num[sstv_info._loop_index] != 0){
