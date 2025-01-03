@@ -49,8 +49,9 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
  */
 void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data){
     while(__HAL_SPI_GET_FLAG(sstv_tim_dma_spi, SPI_FLAG_TXE) == 0){}        // 等待上一轮传输完成
+    sstv_tim_dma_spi->State = HAL_SPI_STATE_BUSY_TX;
     sstv_tim_dma_spi->Instance->DR = *Data;
-    // printf("spi %x\r\n", *Data);
+    sstv_tim_dma_spi->State = HAL_SPI_STATE_READY;
 }
 
 #define AD9833_SCLK(level)      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, level);
@@ -125,11 +126,20 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     // SPI配置
     if(ad9833_tim_dma_spi != NULL){
         if(HAL_SPI_DeInit(ad9833_tim_dma_spi) != HAL_OK){
+            #ifdef TEST_MODE
             printf("HAL_SPI_DeInit error\r\n");
+            #endif
             return UTILS_ERROR;
         }   
+    }else{
+        #ifdef TEST_MODE
+        printf("ad9833_tim_dma_spi is NULL\r\n");
+        #endif
+        return UTILS_ERROR;
     }
+    #ifdef TEST_MODE
     printf("AD9833_Init_Tx_DMA_TIM\r\n");
+    #endif
     
     ad9833_tim_dma_flag = USE_TIM_DMA;                                      //标记使用TIM DMA，在HAL_SPI_MspInit中执行对应代码
 
@@ -152,16 +162,28 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_SPI_Init(ad9833_tim_dma_spi) != HAL_OK)
     {
         //Error_Handler();
+        #ifdef TEST_MODE
         printf("HAL_SPI_Init error\r\n");
+        #endif
         return UTILS_ERROR;
     }
     // printf("HAL_SPI_Init ok\r\n");
 
     /// TIM配置
-    if(HAL_TIM_Base_DeInit(ad9833_tim) != HAL_OK){
-        printf("HAL_TIM_Base_DeInit error\r\n");
+    if(ad9833_tim != NULL){
+        if(HAL_TIM_Base_DeInit(ad9833_tim) != HAL_OK){
+            #ifdef TEST_MODE
+            printf("HAL_TIM_Base_DeInit error\r\n");
+            #endif
+            return UTILS_ERROR;
+        }
+    }else{
+        #ifdef TEST_MODE
+        printf("ad9833_tim is NULL\r\n");
+        #endif
         return UTILS_ERROR;
     }
+    
     TIM_ClockConfigTypeDef sClockSourceConfig = {0};
     TIM_MasterConfigTypeDef sMasterConfig = {0};
 
@@ -174,14 +196,18 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIM_Base_Init(ad9833_tim) != HAL_OK)
     {
         //Error_Handler();
+        #ifdef TEST_MODE
         printf("HAL_TIM_Base_Init error\r\n");
+        #endif
         return UTILS_ERROR;
     }
     sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
     if (HAL_TIM_ConfigClockSource(ad9833_tim, &sClockSourceConfig) != HAL_OK)
     {
         //Error_Handler();
+        #ifdef TEST_MODE
         printf("HAL_TIM_ConfigClockSource error\r\n");
+        #endif
         return UTILS_ERROR;
     }
     sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
@@ -189,54 +215,44 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     if (HAL_TIMEx_MasterConfigSynchronization(ad9833_tim, &sMasterConfig) != HAL_OK)
     {
         //Error_Handler();
+        #ifdef TEST_MODE
         printf("HAL_TIMEx_MasterConfigSynchronization error\r\n");
+        #endif
         return UTILS_ERROR;
     }
     
-    
-    //HAL_SPI_Transmit_DMA(ad9833_obj->spi, tx_data, 8);
-    //((ad9833_tim).Instance->DIER |= ((0x1UL << (8U))));
-    //HAL_TIM_Base_Start_IT(&ad9833_tim);
-
-
 //---------------移植HAL_SPI_Transmit_DMA-----------------------
-    //TODO: hal lock返回值与utils不一致，考虑再封装一层
-    __HAL_LOCK(ad9833_tim_dma_spi);//(ad9833_tim_dma_spi).Lock = HAL_LOCKED;
-    //do{ if((ad9833_tim_dma_spi).Lock == HAL_LOCKED) { return HAL_BUSY; } else { (ad9833_tim_dma_spi).Lock = HAL_LOCKED; } }while (0);//lock spi
+    UTILS_LOCK(ad9833_tim_dma_spi);
     __HAL_SPI_DISABLE(ad9833_tim_dma_spi);//disable spi
     SPI_1LINE_TX(ad9833_tim_dma_spi);//spi tx 1 line
-
     /* Set the SPI TxDMA Half transfer complete callback */
-    ad9833_tim_dma_spi->hdmatx->XferHalfCpltCallback = NULL;        //DMA_TIM_SPI_HalfTxCplt;
-
+    ad9833_tim_dma_spi->hdmatx->XferHalfCpltCallback = NULL;
     /* Set the SPI TxDMA transfer complete callback */
-    ad9833_tim_dma_spi->hdmatx->XferCpltCallback = NULL;            //DMA_TIM_SPI_TxCplt;
-
+    ad9833_tim_dma_spi->hdmatx->XferCpltCallback = NULL;
     /* Set the DMA error callback */
     ad9833_tim_dma_spi->hdmatx->XferErrorCallback = NULL;
-
     /* Set the DMA AbortCpltCallback */
     ad9833_tim_dma_spi->hdmatx->XferAbortCallback = NULL;
-
 
     CLEAR_BIT(ad9833_tim_dma_spi->Instance->CR2, SPI_CR2_LDMATX);//clear SPI_CR2_LDMATX
 
     __HAL_SPI_ENABLE(ad9833_tim_dma_spi);//enable spi
-    __HAL_UNLOCK(ad9833_tim_dma_spi);//unlock spi
-    //((ad9833_tim_dma_spi.Instance->CR2) |= ((0x1UL << (1U))));//enable dma tx request
+    UTILS_UNLOCK(ad9833_tim_dma_spi);//unlock spi
 
 //----------------------------configure timer-----------------
-    //TODO: tim在sstv结束时解锁
-    __HAL_LOCK(ad9833_tim);
+    UTILS_LOCK(ad9833_tim);
     __HAL_TIM_DISABLE(ad9833_tim);
     __HAL_TIM_SetCounter(ad9833_tim, 0);
     __HAL_TIM_ENABLE_DMA(ad9833_tim, TIM_DMA_UPDATE);  //tim dma trigger
     //ad9833_tim->Instance->CR1 |= TIM_CR1_ARPE;        //arr preload enable; arr 在cnt溢出后才更新
     __HAL_TIM_ENABLE_IT(ad9833_tim, TIM_IT_UPDATE);//enable tim interrupt
     // __HAL_TIM_ENABLE(&ad9833_tim);//enable timer
+    UTILS_UNLOCK(ad9833_tim);
+    
+    #ifdef TEST_MODE
     printf("here\r\n");
+    #endif
     return UTILS_OK;
-
 }
 
 

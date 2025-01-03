@@ -63,6 +63,8 @@ typedef enum {
             uint16_t*: UTILS_WriteBit_Zone_Word,    \
             uint32_t*: UTILS_WriteBit_Zone_32bit    \
             )(data, msb, lsb, value)
+#define UTILS_LOCK(__HANDLE__) do{ if((__HANDLE__)->Lock == HAL_LOCKED) { return UTILS_BUSY; } else { (__HANDLE__)->Lock = HAL_LOCKED; } }while (0)
+#define UTILS_UNLOCK(__HANDLE__) do{ (__HANDLE__)->Lock = HAL_UNLOCKED; }while (0)
 
 //------------------------------给ide使用------------------------------
 extern int strncmp(const char *str1, const char *str2, size_t n);

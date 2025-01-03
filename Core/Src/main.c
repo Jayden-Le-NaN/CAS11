@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "sstv_mode_data.h"
+#include "photo_cat.h"
+#include "RGB_color_test.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -313,8 +315,9 @@ int main(void)
   // GD5F2GM7_Set_Features(&gd5f2gm7_obj, 0xC0, 0x02);
   printf("\r\n");
 
-  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj);
-  gen_flash_data(&gd5f2gm7_obj);
+  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 0);
+  // gen_flash_data第二个参数为图片所在flash首地址
+  gen_flash_data(&gd5f2gm7_obj, 0, RGB_COLOR_TEST_R1, RGB_COLOR_TEST_G1, RGB_COLOR_TEST_B1);
   GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xA0, &reg_status);
   printf("A0: %x\r\n", reg_status);
   GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xB0, &reg_status);
@@ -431,13 +434,16 @@ int main(void)
   HAL_Delay(10);
   
   // osc_trigger_start(&osc_trigger_obj);
-  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj);
-  
+  // 最后一个参数为发送的图片的首地址
+  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 0);
+  SSTV_Transmit();
+  HAL_Delay(3000);
+  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 300);
+  SSTV_Transmit();
+  HAL_Delay(3000);
+  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 600);
+  SSTV_Transmit();
 
-  UTILS_Status util = SSTV_Transmit();
-  if(util == UTILS_OK){
-    // sendString("1\r\n");
-  }
   // HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
   // HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
   #endif/* SSTV_TEST */

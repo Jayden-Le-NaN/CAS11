@@ -1,6 +1,5 @@
 #include "sstv.h"
-#include "photo_cat.h"
-#include "RGB_color_test.h"
+
 
 #define       _SSTV_SET_ARR(arr)        sstv_tim->Instance->ARR = (arr);
 #define       _SSTV_SET_PSC(psc)        sstv_tim->Instance->PSC = (psc);
@@ -60,10 +59,9 @@ static void gen_test_signal(uint16_t* arr, uint16_t len){
 
 
 
-UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
+UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_init, uint8_t* R1, uint8_t* G1, uint8_t* B1){
   if(1){// if(sstv_info.sstv_mode->sstv_mode == SCT1){
     uint16_t gd5_RA = 0;
-    uint16_t gd5_RA_init = 0;
 
 
     uint16_t len = sstv_info.sstv_mode->sstv_dma_line_length;
@@ -215,7 +213,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
     printf("\r\n");
 #endif
 
-// #define BLOCK_ERASE_2 // 上电烧录
+#define BLOCK_ERASE_2 // 上电烧录
 #ifdef BLOCK_ERASE_2
   for(uint16_t i = gd5_RA_init; i < gd5_RA_init+256*3; i+=64){
     GD52GM7_BlockErase(gd5f2gm7_obj, i);
@@ -233,11 +231,11 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
           sstv_tx_buffer[i] = AD9833_REG_B28;
         }else if(i == temp*3+1){
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_G1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)G1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, NULL, &sstv_tx_buffer[i]);
         }else{
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_G1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)G1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, &sstv_tx_buffer[i], NULL);
         }
       }
@@ -261,7 +259,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
           sstv_tx_buffer[i] = AD9833_REG_B28;
         }else if(i == temp*3+1){
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_B1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)B1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           // if(temp2 == 0 || temp2 == 2){
           //   // printf("%d ", raw_frq);
           //   printf("%d ", temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp);
@@ -269,7 +267,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, NULL, &sstv_tx_buffer[i]);
         }else{
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_B1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)B1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, &sstv_tx_buffer[i], NULL);
         }
       }
@@ -296,11 +294,11 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
           sstv_tx_buffer[i] = AD9833_REG_B28;
         }else if(i == temp*3+1){
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_R1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)R1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, NULL, &sstv_tx_buffer[i]);
         }else{
           sstv_tx_buffer[i] = AD9833_REG_FREQ0;
-          uint16_t raw_frq = (uint16_t)(1500 + ((float)RGB_COLOR_TEST_R1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
+          uint16_t raw_frq = (uint16_t)(1500 + ((float)R1[temp2*sstv_info.sstv_mode->sstv_dma_line_length/3 + temp] * 3.1372549));
           AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &raw_frq, &sstv_tx_buffer[i], NULL);
         }
       }
@@ -424,7 +422,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj){
  *         SSTV module can only be initialized in IDLE state
  *         AD9833 I and Q channel can only be initialized in IDLE state
  */
-UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q, GD5F2GM7_Info_Struct *gd5f2gm7_obj)
+UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q, GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t flash_RA)
 {
   if((ad9833_i->_dma_fsm_state_transmit != AD9833_DMA_Idle) | (ad9833_q->_dma_fsm_state_transmit != AD9833_DMA_Idle)){
     return UTILS_ERROR;
@@ -438,7 +436,7 @@ UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *a
   sstv_info._loop_index = 0;
   sstv_info._pulse_porch_index = 0;
   sstv_info._line_sended = 0;
-  sstv_info._flash_RA = 0;
+  sstv_info._flash_RA = flash_RA;
   sstv_info.gd5f2gm7_obj = gd5f2gm7_obj;
   sstv_info.tx_buffer_ptr = sstv_tx_buffer;
   return UTILS_OK;
@@ -484,42 +482,22 @@ UTILS_Status SSTV_Transmit(void){
   HAL_Delay(1);
   sstv_info._flash_RA += 1;
 #endif
-  // for(uint16_t i = 0; i<sstv_info.sstv_mode->sstv_dma_line_length; i++){
-  //   printf("%x ", sstv_info.tx_buffer_ptr[i]);
-  //   if(i == (i/3)*3+2){
-  //     printf("\r\n");
-  //   }
-  // }
-  printf("tx_buffer_ptr %x ", sstv_info.tx_buffer_ptr[0]);
-  printf("\r\n");
+  uint16_t frqh = AD9833_REG_FREQ0;
+  uint16_t frql = AD9833_REG_FREQ0;
+
+  UTILS_LOCK(sstv_tim);
   _SSTV_SET_ARR(sstv_info.sstv_mode->header_arr[sstv_info._header_index]);
   _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
   __HAL_TIM_URS_ENABLE(sstv_tim);    // 重要，否则_LOAD_TIM_REG会产生中断
   _LOAD_TIM_REG;
-  
-  uint16_t frqh = AD9833_REG_FREQ0;
-  uint16_t frql = AD9833_REG_FREQ0;
-
-  //  AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->header_frq[sstv_info._header_index], &frqh, &frql);
-  uint16_t a = 1100;
-  // AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &a, &frqh1, &frql1);    // only for test
-  // a = 1000;
-  // AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &a, &frqh, &frql);// only for test
   AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->header_frq[0], &frqh, &frql);
   AD9833_Write_Whole_Frq(sstv_tim_dma_spi, &frqh, &frql);
+  sstv_tim -> State = HAL_TIM_STATE_BUSY;
   __HAL_TIM_ENABLE(sstv_tim);//enable timer，测试写时注释掉
   
-  // printf("%x, %x\r\n", frqh1, frql1);
-  // printf("%x, %x\r\n", frqh2, frql2);
-  // return UTILS_OK;      // only for test
-
-  //printf("add\r\n");
   sstv_info._header_index += 1;
-
-  //_SSTV_SET_ARR(sstv_info.sstv_mode->header_arr[sstv_info._header_index]);
   _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
-  // sstv_info._header_index ++;
-
+  // UTILS_UNLOCK(sstv_tim);
   // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
 
   return UTILS_OK;
@@ -556,7 +534,9 @@ void SSTV_TIM_Header_Callback(void){
 
     // test_point[sstv_info.sstv_mode->header_num-2] = sstv_tim->Instance->CNT;
   }else{
+    #ifdef TEST_MODE
     printf("tim header overflow");
+    #endif
   }
   
 }
@@ -577,7 +557,6 @@ void SSTV_TIM_Loop_Callback(void){
       test_point[15] = sstv_info.tx_buffer_ptr[320*3-1];
       _SSTV_SET_ARR(sstv_info.sstv_mode->pulse_porch_arr_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index-1]);
       _SSTV_SET_PSC(sstv_info.sstv_mode->pulse_porch_psc_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index]);
-
       
       AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->pulse_porch_frq_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index-1], &frqh, &frql);
       // UTILS_Delay_us(100);
@@ -592,7 +571,6 @@ void SSTV_TIM_Loop_Callback(void){
       sstv_info._pulse_porch_index ++;
     }else if(sstv_info._pulse_porch_index == sstv_info.sstv_mode->pulse_porch_num[sstv_info._loop_index]){
       // Loop to DMA
-      
       _SSTV_SET_ARR(sstv_info.sstv_mode->pulse_porch_arr_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index-1] - sstv_info.sstv_mode->dma_arr*3);
       _SSTV_SET_PSC(sstv_info.sstv_mode->dma_psc);
       // TODO: 检测DMA传输是否完成
@@ -624,19 +602,11 @@ void SSTV_TIM_Loop_Callback(void){
       // }
       // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
 
-
-
-      // TODO: 通用模式不能这么写
-      // if(sstv_info._line_sended > 0){
-      //   GD5F2GM7_isBusy(sstv_info.gd5f2gm7_obj, &isbusy_flag);
-      //   sstv_info._flash_RA += 1;
-      //   GD5F2GM7_PageRead_ToCache(sstv_info.gd5f2gm7_obj, sstv_info._flash_RA);
-      //   printf("tc\r\n");
-      // }
-      
       
     }else{
+      #ifdef TEST_MODE
       printf("pp index overflow");
+      #endif
     }
   }else if(sstv_info._sstv_fsm == SSTV_FSM_DMA){
     // DMA to DMA
@@ -665,6 +635,8 @@ void SSTV_TIM_Loop_Callback(void){
     __HAL_TIM_DISABLE_IT(sstv_tim, TIM_IT_UPDATE);
     _LOAD_TIM_REG;
     __HAL_TIM_DISABLE(sstv_tim);
+    sstv_tim->State = HAL_TIM_STATE_RESET;
+    UTILS_UNLOCK(sstv_tim);
     // printf("SSTV END2\r\n");
     uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
     SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);
@@ -692,18 +664,20 @@ void SSTV_TIM_Loop_Callback(void){
     #endif
     
   }else{
+    #ifdef TEST_MODE
     printf("sstv loopcb err");
+    #endif
   }
 }
-
+// TODO: DMA资源锁定等
 void SSTV_DMA_Cplt_Callback(void){
   test_point[19] += 1;
   // printf("D %d\r\n", test_point[19]);
   sstv_info._line_sended += 1;
   // osc trigger for test
-  if(sstv_info._line_sended == 9){
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
-  }
+  // if(sstv_info._line_sended == 9){
+  //   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+  // }
   if(sstv_info._line_sended < sstv_info.sstv_mode->sstv_dma_line_cnt * sstv_info.sstv_mode->loop_num){
     // 还没发完
     if(sstv_info._loop_index < sstv_info.sstv_mode->loop_num && sstv_info.sstv_mode->pulse_porch_num[sstv_info._loop_index] != 0){
@@ -730,21 +704,16 @@ void SSTV_DMA_Cplt_Callback(void){
       _SSTV_SET_PSC(sstv_info.sstv_mode->pulse_porch_psc_ptr[sstv_info._loop_index][0])
       sstv_info._pulse_porch_index = 1;
       sstv_info._sstv_fsm = SSTV_FSM_Loop;
-      
     }else{
-      // __HAL_DMA_DISABLE(sstv_info.AD9833_I->spi->hdmatx);
-      // _DMA_CLEAR_TC_FLAG(sstv_info.AD9833_I->spi->hdmatx);    // HAL_DMA_IRQHandler已经清了，这里清了似乎会导致SPI传输出问题，具体原理不太清楚
       __HAL_DMA_ENABLE(sstv_info.AD9833_I->spi->hdmatx);      // 循环模式不用重新配置DMA，打开就能从头传
-      printf("b %d\r\n", sstv_info._loop_index);
+      // printf("b %d\r\n", sstv_info._loop_index);
       if(sstv_info._loop_index == sstv_info.sstv_mode->loop_num){
         sstv_info._loop_index = 0;
       }else{
         sstv_info._loop_index ++;
       }
-      //不用重新配置HAL_DMA_Start_IT(sstv_info.AD9833_I->spi->hdmatx, (uint32_t)sstv_info.tx_buffer_ptr, (uint32_t)&(sstv_info.AD9833_I->spi->Instance->DR), sstv_info.sstv_mode->sstv_dma_line_length);
     }
 #ifdef SSTV_USE_FLASH
-    // GD5F2GM7_isBusy(sstv_info.gd5f2gm7_obj, &isbusy_flag);
     GD5F2GM7_ReadFromCache(sstv_info.gd5f2gm7_obj, sstv_info.sstv_mode->sstv_dma_line_length, (uint8_t*)(sstv_info.tx_buffer_ptr+sstv_info.sstv_mode->sstv_dma_line_length/2), sstv_info.sstv_mode->sstv_dma_line_length, UTILS_DMA, GD5F2GM7_USE_TIM);
 #endif
     // printf("fe\r\n");
@@ -757,14 +726,10 @@ void SSTV_DMA_Cplt_Callback(void){
     _LOAD_TIM_REG;
     sstv_info._sstv_fsm = SSTV_FSM_END;
   }
-  
-
-  // TODO: 不是最后一行的话，写后半段数组
 }
 
 void SSTV_DMA_HalfCplt_Callback(void){
 #ifdef SSTV_USE_FLASH
-  // TODO: 不是最后一行的话，写前半段数组
   if(sstv_info._line_sended < sstv_info.sstv_mode->sstv_dma_line_cnt*sstv_info.sstv_mode->loop_num - 1){
     GD5F2GM7_ReadFromCache(sstv_info.gd5f2gm7_obj, 0, (uint8_t*)sstv_info.tx_buffer_ptr, sstv_info.sstv_mode->sstv_dma_line_length, UTILS_DMA, GD5F2GM7_NOUSE_TIM);
     // printf("fm\r\n");

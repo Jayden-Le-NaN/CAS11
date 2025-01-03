@@ -120,9 +120,9 @@ typedef struct {
 
 }SSTV_Info_Struct;
 
-UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj);
+UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_init, uint8_t* R1, uint8_t* G1, uint8_t* B1);
 
-UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q, GD5F2GM7_Info_Struct *gd5f2gm7_obj);
+UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q, GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t flash_RA);
 UTILS_Status SSTV_Transmit(void);
 void SSTV_TIM_Header_Callback(void);
 void SSTV_TIM_Loop_Callback(void);
