@@ -14,6 +14,41 @@
 #define ADF4252_Transmit_Receive_Start()    HAL_GPIO_WritePin(adf4252_obj->le_pin_type, adf4252_obj->le_pin, GPIO_PIN_RESET);
 #define ADF4252_Transmit_Receive_Stop()     HAL_GPIO_WritePin(adf4252_obj->le_pin_type, adf4252_obj->le_pin, GPIO_PIN_SET);
 //------------------------------仅内部可用,外部不可用------------------------------
+#define ADF4252_SCLK(level)      HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, level)
+#define ADF4252_SDATA(level)     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10, level)
+#define ADF4252_FSYNC(level)     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11, level)
+
+/**
+ * @brief   通过低速IO口写16位数据
+ * @param   Data              :  需要写入的数据
+ * @retval  None
+ */
+static void Write_Byte(uint8_t *Data){
+    uint8_t i;
+    uint8_t temp = *Data;
+    ADF4252_SCLK(GPIO_PIN_RESET);
+    HAL_Delay(1);
+    // ADF4252_FSYNC(GPIO_PIN_SET);
+    // HAL_Delay(1);
+    // ADF4252_FSYNC(GPIO_PIN_RESET);
+    //写16位数据
+    for(i=0;i<8;i++)
+    {
+        
+        if (temp & 0x80){
+            ADF4252_SDATA(GPIO_PIN_SET);
+        } 
+        else{
+            ADF4252_SDATA(GPIO_PIN_RESET);
+        }
+        HAL_Delay(1);
+        ADF4252_SCLK(GPIO_PIN_SET);
+        HAL_Delay(1);
+        ADF4252_SCLK(GPIO_PIN_RESET);
+        temp<<=1;
+    }
+    // ADF4252_FSYNC(GPIO_PIN_SET);
+}
 
 /*
  * @brief               把缓冲区中的数据打到片子上的锁存器中
@@ -55,10 +90,16 @@ UTILS_Status ADF4252_Write_register(ADF4252_Info_Struct* adf4252_obj, uint8_t re
 
         //------------------------------把数据打出去------------------------------
         ADF4252_Transmit_Receive_Start();
+        #ifdef BOARD_v1
+        Write_Byte(&packet[0]);
+        Write_Byte(&packet[1]);
+        Write_Byte(&packet[2]);
+        #else
         if (HAL_SPI_Transmit(adf4252_obj->spi, packet, 3, HAL_MAX_DELAY) != HAL_OK) 
             status = UTILS_ERROR;
+        #endif
         ADF4252_Transmit_Receive_Stop();
-
+        HAL_Delay(1);
     } while(0);
     return status;
 }

@@ -9,7 +9,7 @@
 
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim2;
-extern Time_Calculator time_calculator_obj;
+extern Timemeter_Struct timemeter_obj;
 
 SPI_HandleTypeDef* sstv_tim_dma_spi = &hspi2;
 SSTV_Info_Struct sstv_info;
@@ -59,7 +59,7 @@ static void gen_test_signal(uint16_t* arr, uint16_t len){
 
 
 
-UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_init, uint8_t* R1, uint8_t* G1, uint8_t* B1){
+UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_init, const uint8_t* R1, const uint8_t* G1, const uint8_t* B1){
   if(1){// if(sstv_info.sstv_mode->sstv_mode == SCT1){
     uint16_t gd5_RA = 0;
 
@@ -213,7 +213,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_
     printf("\r\n");
 #endif
 
-#define BLOCK_ERASE_2 // 上电烧录
+// #define BLOCK_ERASE_2 // 上电烧录
 #ifdef BLOCK_ERASE_2
   for(uint16_t i = gd5_RA_init; i < gd5_RA_init+256*3; i+=64){
     GD52GM7_BlockErase(gd5f2gm7_obj, i);
@@ -317,7 +317,7 @@ UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_
   }
     
 #endif
-    uint32_t page_address = 1;
+    uint32_t page_address = gd5_RA_init + 100;
     uint32_t data_address = 0;
     HAL_Delay(1);
 
@@ -439,7 +439,15 @@ UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *a
   sstv_info._flash_RA = flash_RA;
   sstv_info.gd5f2gm7_obj = gd5f2gm7_obj;
   sstv_info.tx_buffer_ptr = sstv_tx_buffer;
+  sstv_info._sstv_1st_line_flag = 0;
   return UTILS_OK;
+}
+
+UTILS_Status Get_SSTV_Status(void){
+  if(sstv_info._sstv_tx_state == SSTV_Transmitting){
+    return UTILS_BUSY;
+  }
+  return UTILS_IDLE;
 }
 
 #define SSTV_USE_FLASH
@@ -449,8 +457,6 @@ UTILS_Status SSTV_Transmit(void){
   }
   sstv_info._sstv_tx_state = SSTV_Transmitting;
   sstv_info._sstv_fsm = SSTV_FSM_Header;
-  //get buffer
-  uint16_t tx_buffer[sstv_info.sstv_mode->sstv_dma_line_length];
 #ifndef SSTV_USE_FLASH
   gen_test_signal(sstv_tx_buffer, sstv_info.sstv_mode->sstv_dma_line_length);
 #endif
@@ -497,7 +503,6 @@ UTILS_Status SSTV_Transmit(void){
   
   sstv_info._header_index += 1;
   _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index]);
-  // UTILS_UNLOCK(sstv_tim);
   // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
 
   return UTILS_OK;
@@ -518,11 +523,6 @@ void SSTV_TIM_Header_Callback(void){
     _SSTV_SET_ARR(sstv_info.sstv_mode->header_arr[sstv_info._header_index]);
     _SSTV_SET_PSC(sstv_info.sstv_mode->header_psc[sstv_info._header_index+1]);
     sstv_info._header_index ++;
-    //printf("%d\r\n", sstv_info._header_index-1);
-    // if(sstv_info._header_index<2){
-    //   printf("%d\r\n", sstv_tim->Instance->CNT);
-    // }
-    // test_point[sstv_info._header_index-3] = sstv_tim->Instance->CNT;
   }else if(sstv_info._header_index == sstv_info.sstv_mode->header_num - 1){
     //_SSTV_SET_ARR(sstv_info.sstv_mode->pulse_porch_arr_ptr[0][0]);
     AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->header_frq[sstv_info._header_index-1], &frqh, &frql);
@@ -541,8 +541,6 @@ void SSTV_TIM_Header_Callback(void){
   
 }
 
-uint8_t flag_temp = 0;
-
 void SSTV_TIM_Loop_Callback(void){
   testflag[1] = 1;
   // printf("L\r\n");
@@ -559,11 +557,8 @@ void SSTV_TIM_Loop_Callback(void){
       _SSTV_SET_PSC(sstv_info.sstv_mode->pulse_porch_psc_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index]);
       
       AD9833_FrequencyConversion_2Reg(sstv_info.AD9833_I, &sstv_info.sstv_mode->pulse_porch_frq_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index-1], &frqh, &frql);
-      // UTILS_Delay_us(100);
       
       AD9833_Write_Whole_Frq(sstv_tim_dma_spi, &frqh, &frql);
-
-      // printf("a %d %d\r\n", sstv_info._pulse_porch_index, sstv_info.sstv_mode->pulse_porch_frq_ptr[sstv_info._loop_index][sstv_info._pulse_porch_index-1]);
       // printf("a %d %x %x\r\n", sstv_info._loop_index, frqh, frql);
       test_point[17]++;
       // UTILS_Delay_us(100);
@@ -592,17 +587,6 @@ void SSTV_TIM_Loop_Callback(void){
         sstv_info._loop_index ++;
       }
       sstv_info._pulse_porch_index = 0;
-      // printf("2\r\n");
-      // UTILS_Delay_us(100);
-      // if(1){//flag_temp == 0
-      //   HAL_DMA_Start_IT(sstv_info.AD9833_I->spi->hdmatx, (uint32_t)sstv_info.tx_buffer_ptr, (uint32_t)&(sstv_info.AD9833_I->spi->Instance->DR), sstv_info.sstv_mode->sstv_dma_line_length);
-      //   flag_temp = 1;
-      // }else{
-      //   __HAL_DMA_ENABLE(sstv_info.AD9833_I->spi->hdmatx);
-      // }
-      // HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
-
-      
     }else{
       #ifdef TEST_MODE
       printf("pp index overflow");
@@ -610,20 +594,14 @@ void SSTV_TIM_Loop_Callback(void){
     }
   }else if(sstv_info._sstv_fsm == SSTV_FSM_DMA){
     // DMA to DMA
-    // __HAL_DMA_ENABLE(sstv_info.AD9833_I->spi->hdmatx);
     __HAL_TIM_URS_ENABLE(sstv_tim);
     _SSTV_SET_ARR(sstv_info.sstv_mode->dma_arr);
     __HAL_TIM_DISABLE_IT(sstv_tim, TIM_IT_UPDATE);
     _LOAD_TIM_REG;
-    if(flag_temp == 0){//flag_temp == 0
+    if(sstv_info._sstv_1st_line_flag == 0){//sstv_info._sstv_1st_line_flag == 0
       // uint32_t a = UTILS_GetSysTick();
       HAL_DMA_Start_IT(sstv_info.AD9833_I->spi->hdmatx, (uint32_t)sstv_info.tx_buffer_ptr, (uint32_t)&(sstv_info.AD9833_I->spi->Instance->DR), sstv_info.sstv_mode->sstv_dma_line_length);
-      uint16_t test_pixel = sstv_info.tx_buffer_ptr[1];
-      // printf("pixel val: %x\r\n", test_pixel);
-      // uint32_t b = UTILS_GetSysTick();
-      // printf("a: %d, b: %d\r\n", a, b);
-      
-      flag_temp = 1;
+      sstv_info._sstv_1st_line_flag = 1;
     }else{
       __HAL_DMA_ENABLE(sstv_info.AD9833_I->spi->hdmatx);
     }
@@ -633,15 +611,19 @@ void SSTV_TIM_Loop_Callback(void){
     // printf("SSTV END1\r\n");
     __HAL_TIM_URS_ENABLE(sstv_tim);
     __HAL_TIM_DISABLE_IT(sstv_tim, TIM_IT_UPDATE);
-    _LOAD_TIM_REG;
     __HAL_TIM_DISABLE(sstv_tim);
-    sstv_tim->State = HAL_TIM_STATE_RESET;
+    _LOAD_TIM_REG;
     UTILS_UNLOCK(sstv_tim);
+    sstv_tim->State = HAL_TIM_STATE_READY;
     // printf("SSTV END2\r\n");
+    // AD9833_Sleep(sstv_info.AD9833_I, AD9833_SLEEP_ALL_POWERDOWN);
+    // AD9833_Sleep(sstv_info.AD9833_Q, AD9833_SLEEP_ALL_POWERDOWN);
+    // HAL_Delay(1);
     uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
     SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);
     sstv_info._sstv_fsm = SSTV_FSM_Idle;
     sstv_info._sstv_tx_state = SSTV_Idle;
+    UTILS_Delay_us(100);
     HAL_GPIO_WritePin(sstv_info.AD9833_I->fsync_pin_type, sstv_info.AD9833_I->fsync_pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(sstv_info.AD9833_Q->fsync_pin_type, sstv_info.AD9833_Q->fsync_pin, GPIO_PIN_SET);
 

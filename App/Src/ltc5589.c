@@ -13,7 +13,69 @@
 #define LTC5589_Transmit_Receive_Start()    HAL_GPIO_WritePin(ltc5589_obj->cs_pin_type, ltc5589_obj->cs_pin, GPIO_PIN_RESET);
 #define LTC5589_Transmit_Receive_Stop()     HAL_GPIO_WritePin(ltc5589_obj->cs_pin_type, ltc5589_obj->cs_pin, GPIO_PIN_SET);
 //------------------------------仅内部可用,外部不可用------------------------------
+#define LTC5589_SCLK(level)      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, level)
+#define LTC5589_MOSI(level)     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, level)
+#define LTC5589_MISO()          HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)
+/**
+ * @brief   通过低速IO口写16位数据
+ * @param   Data              :  需要写入的数据
+ * @retval  None
+ */
+static void Write_Byte(uint8_t *Data){
+    uint8_t i;
+    uint8_t temp = *Data;
+    LTC5589_SCLK(GPIO_PIN_RESET);
+    HAL_Delay(1);
+    //写16位数据
+    for(i=0;i<8;i++)
+    {
+        
+        if (temp & 0x80){
+            LTC5589_MOSI(GPIO_PIN_SET);
+        } 
+        else{
+            LTC5589_MOSI(GPIO_PIN_RESET);
+        }
+        HAL_Delay(1);
+        LTC5589_SCLK(GPIO_PIN_SET);
+        HAL_Delay(1);
+        LTC5589_SCLK(GPIO_PIN_RESET);
+        temp<<=1;
+    }
+}
 
+/**
+ * @brief   通过低速IO口读取8位数据
+ * @param   None
+ * @retval  读取到的8位数据
+ */
+static uint8_t Read_Byte(void) {
+    uint8_t i;
+    uint8_t temp = 0;
+
+    LTC5589_SCLK(GPIO_PIN_RESET);
+    HAL_Delay(1);
+
+    // 读取8位数据
+    for (i = 0; i < 8; i++) {
+        LTC5589_SCLK(GPIO_PIN_SET);
+        HAL_Delay(1);
+
+        // 读取MISO引脚的状态
+        if (LTC5589_MISO() == GPIO_PIN_SET) {
+            temp |= 0x01; // 如果MISO为高电平，设置对应的位
+        }
+
+        LTC5589_SCLK(GPIO_PIN_RESET);
+        HAL_Delay(1);
+
+        if (i < 7) {
+            temp <<= 1; // 左移一位，准备读取下一个位
+        }
+    }
+
+    return temp;
+}
 
 /*
  * @brief               写寄存器数据
@@ -30,8 +92,13 @@ static UTILS_Status LTC5589_Write_Register(LTC5589_Info_Struct* ltc5589_obj, uin
     packet[0] = (reg_addr << 1) & 0xFE;             // 把地址装载并设置为写模式
     packet[1] = tx_data;                            // 装载数据
     LTC5589_Transmit_Receive_Start();
+    #ifdef BOARD_v1
+    Write_Byte(&packet[0]);
+    Write_Byte(&packet[1]);
+    #else
     if (HAL_SPI_Transmit(ltc5589_obj->spi, packet, 2, HAL_MAX_DELAY) != HAL_OK) 
         status = UTILS_ERROR;
+    #endif
     LTC5589_Transmit_Receive_Stop();
     return status;
 }
@@ -51,6 +118,10 @@ UTILS_Status LTC5589_Read_Register(LTC5589_Info_Struct* ltc5589_obj, uint8_t reg
     packet[0] = (reg_addr << 1) | 0x01;
     LTC5589_Transmit_Receive_Start();
     do {
+        #ifdef BOARD_v1
+        Write_Byte(&packet[0]);
+        *rx_data = Read_Byte();
+        #else
         // 发送数据地址
         if (HAL_SPI_Transmit(ltc5589_obj->spi, packet, 1, HAL_MAX_DELAY) != HAL_OK) {
             status = UTILS_ERROR;
@@ -62,6 +133,7 @@ UTILS_Status LTC5589_Read_Register(LTC5589_Info_Struct* ltc5589_obj, uint8_t reg
             status = UTILS_ERROR;
             break; 
         }
+        #endif
     } while(0);
     LTC5589_Transmit_Receive_Stop();
     return status;
@@ -346,13 +418,15 @@ UTILS_Status LTC5589_Q_Channel_Disable(LTC5589_Info_Struct* ltc5589_obj) {
  * @param ttck_pin_type ttck引脚的GPIO类型
  * @return              无
  */
-void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint32_t cs_pin, GPIO_TypeDef* cs_pin_type, uint32_t ttck_pin, GPIO_TypeDef* ttck_pin_type) {
+void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint32_t cs_pin, GPIO_TypeDef* cs_pin_type, uint32_t ttck_pin, GPIO_TypeDef* ttck_pin_type, uint32_t en_pin, GPIO_TypeDef* en_pin_type) {
     //------------------------------把数据挂载到结构体上------------------------------
     ltc5589_obj->spi = spi;    
     ltc5589_obj->cs_pin = cs_pin;
     ltc5589_obj->cs_pin_type = cs_pin_type;
     ltc5589_obj->ttck_pin = ttck_pin;  
     ltc5589_obj->ttck_pin_type = ttck_pin_type;
+    ltc5589_obj->en_pin = en_pin;
+    ltc5589_obj->en_pin_type = en_pin_type;
 
     //------------------------------初始化数据------------------------------
     ltc5589_obj->_freq = 0x3E;
@@ -365,6 +439,8 @@ void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint
     //------------------------------使能引脚时钟------------------------------
     UTILS_RCC_GPIO_Enable(ltc5589_obj->cs_pin_type);
     UTILS_RCC_GPIO_Enable(ltc5589_obj->ttck_pin_type);
+    UTILS_RCC_GPIO_Enable(ltc5589_obj->en_pin_type);
+    
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -379,6 +455,11 @@ void LTC5589_Init(LTC5589_Info_Struct* ltc5589_obj, SPI_HandleTypeDef* spi, uint
     HAL_GPIO_WritePin(ltc5589_obj->ttck_pin_type, ltc5589_obj->ttck_pin, GPIO_PIN_RESET);     // 默认把电平拉低
     GPIO_InitStruct.Pin = ltc5589_obj->ttck_pin;
     HAL_GPIO_Init(ltc5589_obj->ttck_pin_type, &GPIO_InitStruct);
+
+    //------------------------------配置EN引脚------------------------------
+    HAL_GPIO_WritePin(ltc5589_obj->en_pin_type, ltc5589_obj->en_pin, GPIO_PIN_SET);           // 默认把电平拉高
+    GPIO_InitStruct.Pin = ltc5589_obj->en_pin;
+    HAL_GPIO_Init(ltc5589_obj->en_pin_type, &GPIO_InitStruct);
 }
 
 /*

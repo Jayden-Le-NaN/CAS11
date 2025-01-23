@@ -10,7 +10,7 @@
 //------------------------------------------------------------
 
 //-------------------------------全局变量-------------------------------
-extern Time_Calculator time_calculator_obj;
+extern Timemeter_Struct timemeter_obj;
 
 //------------------------------仅内部使用,外部不可用------------------------------
 #define GD5F2GM7_Transmit_Receive_Start()   HAL_GPIO_WritePin(gd5f2gm7_obj->cs_pin_type, gd5f2gm7_obj->cs_pin, GPIO_PIN_RESET)

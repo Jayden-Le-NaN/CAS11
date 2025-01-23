@@ -7,12 +7,10 @@
 // Created Time     : 2024.10.28
 // Author           : JaydenLee
 //------------------------------------------------------------
-
-
+// TODO: 在一些函数中，设置寄存器某比特实际写DDS，另设DDS寄存器版本与MCU内部是否相同的flag
 //------------------------------仅内部使用, 外部不可用------------------------------
-#define AD9833_Transmit_Start()                 HAL_GPIO_WritePin(ad9833_obj->fsync_pin_type, ad9833_obj->fsync_pin, GPIO_PIN_RESET)
-#define AD9833_Transmit_Stop()                  HAL_GPIO_WritePin(ad9833_obj->fsync_pin_type, ad9833_obj->fsync_pin, GPIO_PIN_SET)
-#define AD9833_Cal_Whole_frq(ad9833_obj, raw_freq, frqh, frql)      AD9833_FrequencyConversion(ad9833_obj, raw_freq, 1, NULL, frqh, frql)
+
+
 #define USE_TIM_DMA                     1
 #define NO_USE_TIM_DMA                  0
 
@@ -26,21 +24,12 @@ uint8_t ad9833_tim_dma_flag = NO_USE_TIM_DMA;
 void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi) {
     if (ad9833_obj->spi == spi && ad9833_obj->_dma_fsm_state_transmit == AD9833_DMA_Transmiting) {
         ad9833_obj->_dma_fsm_state_transmit = AD9833_DMA_Idle;
-        AD9833_Transmit_Stop();
+        AD9833_Transmit_Stop(ad9833_obj);
     }
 }
 //------------------------------需要放入中断回调函数中的函数------------------------------
 
-
-// void DMA_TIM_SPI_HalfTxCplt(void)
-// {
-//     printf("DMA TIM SPI HalfTxCplt\n");
-// }
-
-// void DMA_TIM_SPI_TxCplt(void){
-//     printf("DMA TIM SPI TxCplt\n");
-// }
-
+//----------------------------------------------
 /**
  * @brief   通过SPI的方式写16bit
  * @param   sstv_tim_dma_spi  :  SPI句柄
@@ -52,6 +41,7 @@ void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data){
     sstv_tim_dma_spi->State = HAL_SPI_STATE_BUSY_TX;
     sstv_tim_dma_spi->Instance->DR = *Data;
     sstv_tim_dma_spi->State = HAL_SPI_STATE_READY;
+    // printf("%x\r\n", *Data);
 }
 
 #define AD9833_SCLK(level)      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, level);
@@ -137,9 +127,9 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
         #endif
         return UTILS_ERROR;
     }
-    #ifdef TEST_MODE
-    printf("AD9833_Init_Tx_DMA_TIM\r\n");
-    #endif
+    // #ifdef TEST_MODE
+    // printf("AD9833_Init_Tx_DMA_TIM\r\n");
+    // #endif
     
     ad9833_tim_dma_flag = USE_TIM_DMA;                                      //标记使用TIM DMA，在HAL_SPI_MspInit中执行对应代码
 
@@ -167,9 +157,8 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
         #endif
         return UTILS_ERROR;
     }
-    // printf("HAL_SPI_Init ok\r\n");
 
-    /// TIM配置
+    // TIM配置
     if(ad9833_tim != NULL){
         if(HAL_TIM_Base_DeInit(ad9833_tim) != HAL_OK){
             #ifdef TEST_MODE
@@ -249,9 +238,6 @@ UTILS_Status AD9833_Init_Tx_DMA_TIM(AD9833_Info_Struct* ad9833_obj1, AD9833_Info
     // __HAL_TIM_ENABLE(&ad9833_tim);//enable timer
     UTILS_UNLOCK(ad9833_tim);
     
-    #ifdef TEST_MODE
-    printf("here\r\n");
-    #endif
     return UTILS_OK;
 }
 
@@ -310,9 +296,10 @@ static UTILS_Status AD9833_ControlRegisterWrite(AD9833_Info_Struct* ad9833_obj) 
     uint8_t packet[2];
     packet[0] = ((AD9833_REG_CONTROL | ad9833_obj->_control_reg_data) & 0xFF00) >> 8;
     packet[1] = (ad9833_obj->_control_reg_data) & 0x00FF;
-    AD9833_Transmit_Start();
+    AD9833_Transmit_Start(ad9833_obj);
     status = AD9833_Transmit_8bit_Array(ad9833_obj, packet, 2);
-    AD9833_Transmit_Stop();
+    AD9833_Transmit_Stop(ad9833_obj);
+    ad9833_obj->_updated = true;
     return status;
 }
 
@@ -358,10 +345,10 @@ static UTILS_Status AD9833_RegisterWrite(AD9833_Info_Struct* ad9833_obj, uint16_
         }
     }
 
-    AD9833_Transmit_Start();
+    AD9833_Transmit_Start(ad9833_obj);
     if (tx_mode == UTILS_LOOP) {
         status = AD9833_Transmit_8bit_Array(ad9833_obj, (uint8_t*)data, len);
-        AD9833_Transmit_Stop();
+        AD9833_Transmit_Stop(ad9833_obj);
     }
     else if (tx_mode == UTILS_DMA) {
         status = AD9833_Transmit_8bit_Array_DMA(ad9833_obj, (uint8_t*)data, len);
@@ -371,6 +358,18 @@ static UTILS_Status AD9833_RegisterWrite(AD9833_Info_Struct* ad9833_obj, uint16_
     return status;
 }
 
+/**
+ * @brief           将频率raw_freq转换为28位的整数val,
+ *                  并将val分割为高14位和低14位，分别写入frqh和frql
+ * @param ad9833_obj    ad9833 指定信息
+ * @param raw_freq      原始的频率数据
+ * @param frqh          高14位数据
+ * @param frql          低14位数据
+ * @return              无
+ * @note               raw_freq不可以为空,否则函数直接返回
+ *                      frqh和frql可以为空,如果为空,则相应的寄存器不进行更改
+ *                      该函数可以在中断服务函数中使用
+ */
 void AD9833_FrequencyConversion_2Reg(AD9833_Info_Struct* ad9833_obj, uint16_t* raw_freq, uint16_t* frqh, uint16_t* frql){
     if(raw_freq == NULL || ad9833_obj == NULL){
         return;
@@ -453,6 +452,7 @@ UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t f
     else {
         status = UTILS_ERROR;
     }
+    ad9833_obj->_updated = false;
     return status;
 }
 
@@ -474,6 +474,7 @@ UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase
     else {
         status = UTILS_ERROR;
     }
+    ad9833_obj->_updated = false;
     return status;
 }
 
@@ -585,7 +586,7 @@ UTILS_Status AD9833_SetPhase(AD9833_Info_Struct* ad9833_obj, uint16_t phase_reg,
                             MODE bit     : D1
                             DIV2 bit     : D3
  */
-UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode) {
+UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode, bool enWR) {
     UTILS_Status status = UTILS_OK;
     do {
         if (wave_mode == AD9833_WAVE_SINUSOID) {
@@ -612,7 +613,9 @@ UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode) 
             status = UTILS_ERROR;
             break;
         }
-        status = AD9833_ControlRegisterWrite(ad9833_obj);
+        if(enWR){
+            status = AD9833_ControlRegisterWrite(ad9833_obj);
+        }
     } while(0);
     return status;
 }
@@ -628,7 +631,7 @@ UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode) 
                             SLEEP1 bit  : D7
                             SLEEP2 bit  : D6
  */
-UTILS_Status AD9833_Sleep(AD9833_Info_Struct* ad9833_obj, uint16_t sleep_mode) {
+UTILS_Status AD9833_Sleep(AD9833_Info_Struct* ad9833_obj, uint16_t sleep_mode, bool enWR) {
     UTILS_Status status = UTILS_OK;
     do {
         if (sleep_mode == AD9833_SLEEP_NO_PWERDOWN) {
@@ -651,23 +654,33 @@ UTILS_Status AD9833_Sleep(AD9833_Info_Struct* ad9833_obj, uint16_t sleep_mode) {
             status = UTILS_ERROR;
             break;
         }
-        status = AD9833_ControlRegisterWrite(ad9833_obj);
+        if(enWR){
+            status = AD9833_ControlRegisterWrite(ad9833_obj);
+        }
     } while(0);
     return status;
 }
 
 /*
- * @brief               内部寄存器设置为0
+ * @brief               设置控制寄存器Reset位，并指定是否写入ad9833
  * @param ad9833_obj    ad9833 指定信息
+ * @param isReset       是否要Reset
+ * @param enWR          是否写入ad9833
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是波形选择错误
  * @note                寄存器的位置如下
                             RESET bit  : D8
  */
-UTILS_Status AD9833_Reset(AD9833_Info_Struct* ad9833_obj) {
+UTILS_Status AD9833_Reset(AD9833_Info_Struct* ad9833_obj, bool isReset, bool enWR) {
     UTILS_Status status = UTILS_OK;
-    UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 8, 1);
-    status = AD9833_ControlRegisterWrite(ad9833_obj);
+    if(isReset){
+        UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 8, 1);
+    }else{
+        UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 8, 0);
+    }
+    if(enWR){
+        status = AD9833_ControlRegisterWrite(ad9833_obj);
+    }
     return status;
 }
 
@@ -708,9 +721,10 @@ void AD9833_Init(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi, uint32_
     //------------------------------默认数据处理------------------------------
     ad9833_obj->_dma_fsm_state_transmit = AD9833_DMA_Idle;
     ad9833_obj->_control_reg_data = 0x0;
+    ad9833_obj->_updated = false;
 
     //------------------------------配置FSYNC引脚------------------------------
-    AD9833_Transmit_Stop();
+    AD9833_Transmit_Stop(ad9833_obj);
     UTILS_RCC_GPIO_Enable(ad9833_obj->fsync_pin_type);
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     

@@ -17,6 +17,7 @@
 #include "adf4252.h"
 #include "gd5f2gm7.h"
 #include "pm004m.h"
+#include "control.h"
 
 //----------------------------------------
 // 软件

@@ -67,10 +67,10 @@ extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef htim5;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
-extern Time_Calculator time_calculator_obj;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -261,11 +261,11 @@ void DMA1_Channel5_IRQHandler(void)
 void TIM2_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM2_IRQn 0 */
-  //printf("T\r\n");
+  // printf("T\r\n");
   if(sstv_info._sstv_tx_state == SSTV_Transmitting){
     if ((htim2.Instance->SR & (TIM_FLAG_UPDATE)) == (TIM_FLAG_UPDATE)){
       __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_UPDATE);
-      // 判断当剝的进度 
+      // 判断当剝的进�? 
       if(sstv_info._sstv_fsm == SSTV_FSM_Header){
         SSTV_TIM_Header_Callback();
       }else if((sstv_info._sstv_fsm == SSTV_FSM_Loop) | (sstv_info._sstv_fsm == SSTV_FSM_DMA) | (sstv_info._sstv_fsm == SSTV_FSM_END)){
@@ -338,6 +338,20 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
 
   /* USER CODE END USART1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM5 global interrupt.
+  */
+void TIM5_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM5_IRQn 0 */
+
+  /* USER CODE END TIM5_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim5);
+  /* USER CODE BEGIN TIM5_IRQn 1 */
+
+  /* USER CODE END TIM5_IRQn 1 */
 }
 
 /**

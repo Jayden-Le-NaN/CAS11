@@ -24,6 +24,9 @@
 #include "sstv_mode_data.h"
 #include "photo_cat.h"
 #include "RGB_color_test.h"
+#include "DGD_1.h"
+#include "DGD_2.h"
+#include "DGD_3.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,11 +49,27 @@ AD9833_Info_Struct ad9833_obj;
 AD9833_Info_Struct ad9833_i;
 AD9833_Info_Struct ad9833_q;
 OSC_Trigger osc_trigger_obj;
-Time_Calculator time_calculator_obj;
+Timemeter_Struct timemeter_obj;
 extern SSTV_Info_Struct sstv_info;
 extern uint16_t test_point[20];
 
-// urc �?
+extern TMUX4827_DCSW_Struct tmux4827_5V_DCSW_obj;
+extern TMUX4827_DCSW_Struct tmux4827_PA_DCSW_obj;
+extern TPS16412_DCProtection_Struct tps16412_5V_PA_obj;
+extern TPS16412_DCProtection_Struct tps16412_3V3_PA_obj;
+extern TPS16412_DCProtection_Struct tps16412_VCO_obj;
+extern TPS16412_DCProtection_Struct tps16412_AVDD_obj;
+extern TPS16412_DCProtection_Struct tps16412_AVDD_PLL_obj;
+extern TPS22810_DCSW_Struct tps22810_5V_Measure_obj;
+// TODO: extern TPS22810_DCSW_Struct tps22810_3V3_Measure_obj;
+extern Charger_DCSW_Struct charger_obj;
+extern LT3436_Boost_Struct lt3436_obj;
+// extern BQ25303_Bat_Struct bq25303_obj;
+extern LMR51606_Buck_Struct lmr51606_obj;
+extern MXD8546F_RFSW_Struct mxd8546f_obj;
+extern SKY13489_RFSW_Struct sky13489_obj;
+
+// urc �????
 
 
 /* USER CODE END PM */
@@ -70,6 +89,7 @@ DMA_HandleTypeDef hdma_spi3_tx;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
@@ -94,7 +114,7 @@ uint8_t uart1_tx_buffer[256];
 /* 串口1接收空闲中断处理 ------------------------------------------------------------*/
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
     if (huart == &huart1) {
-        ring_buffer_put(&uart1_rx_rb, uart1_rx_buffer, Size);       // 把数据放到环形缓冲区�?
+        ring_buffer_put(&uart1_rx_rb, uart1_rx_buffer, Size);       // 把数据放到环形缓冲区�????
         ring_buffer_put(&uart1_rx_event_rb, (uint8_t*)&Size, 2);    // 存储事件的�?�到环形缓冲区中
         HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buffer, sizeof(uart1_rx_buffer) / sizeof(uart1_rx_buffer[0]));
     }
@@ -109,7 +129,7 @@ uint32_t at_uart_write(const void* buffer, uint32_t len) {
     return ring_buffer_put(&uart1_tx_rb, (uint8_t*) buffer, len);
 }
 
-static uint8_t uart1_urcbuffer[256];        // urc 接收缓冲�?
+static uint8_t uart1_urcbuffer[256];        // urc 接收缓冲�????
 uint8_t uart1_recvbuffer[256];
 
 void task1_handler(void* obj_t, struct at_obj* at, char* recvbuf, int32_t len);
@@ -119,14 +139,14 @@ void task3_handler(void* obj_t, struct at_obj* at, char* recvbuf, int32_t len);
 
 static at_obj_t at;
 
-static const urc_item_t urc_table[] = {     // urc �?
+static const urc_item_t urc_table[] = {     // urc �????
     {NULL, &at, "task1", task1_handler},
     {NULL, &at, "task2", task2_handler},
     {NULL, &at, "task3", task3_handler},
     {&ltc5589_obj, &at, "AT+5589", LTC5589_AT_Handler},
 };
 
-static const at_adapter_t at_adapter = {    // at 适配�?
+static const at_adapter_t at_adapter = {    // at 适配�????
     .write = at_uart_write,
     .read = at_uart_read,
     .error = NULL,
@@ -174,22 +194,17 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
     PM004M_Receive_IRQ_Handler(&pm004m_obj, hspi);
 }
 
-#define _LOAD_TIM_REG(tim) do{tim->Instance->EGR = TIM_EGR_UG; if (HAL_IS_BIT_SET(tim->Instance->SR, TIM_FLAG_UPDATE)){CLEAR_BIT(tim->Instance->SR, TIM_FLAG_UPDATE);}}while(0)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
-    // TODO:osc trigger使用与flash冲突
-    // if(htim->Instance == osc_trigger_obj.osc_tim->Instance){
-    //     osc_trigger_end(&osc_trigger_obj);
-    //     printf("osc trigger end\r\n");
-    // }
-    if(htim->Instance == gd5f2gm7_obj.tim->Instance){
-      // __HAL_TIM_DISABLE_IT(sstv_info.gd5f2gm7_obj->tim, TIM_IT_UPDATE);
-      // _LOAD_TIM_REG(sstv_info.gd5f2gm7_obj->tim);
+    if(htim->Instance == gd5f2gm7_obj.tim->Instance && sstv_info._sstv_tx_state == SSTV_Transmitting){
       __HAL_TIM_DISABLE(sstv_info.gd5f2gm7_obj->tim);
       
       sstv_info._flash_RA += 1;
       GD5F2GM7_PageRead_ToCache(sstv_info.gd5f2gm7_obj, sstv_info._flash_RA);
       test_point[13]++;
       // printf("tc\r\n");
+    }else if(htim->Instance == osc_trigger_obj.osc_tim->Instance){
+      osc_trigger_end(&osc_trigger_obj);
+      printf("osc trigger end\r\n");
     }
 }
 
@@ -207,6 +222,7 @@ static void MX_SPI3_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -253,18 +269,31 @@ int main(void)
   MX_DAC1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
+  /*--------------控制信号---------------*/
+#ifdef CONTROL_TEST
+  #ifdef BOARD_v1
+  control_output_init();
+  HAL_Delay(300);
+  EN_TPS16412_DCProtection(tps16412_VCO_obj);
+  EN_TPS16412_DCProtection(tps16412_AVDD_obj);
+  EN_TPS16412_DCProtection(tps16412_AVDD_PLL_obj);
+  EN_LMR51606_BUCK(lmr51606_obj);
+  HAL_Delay(300);
+  #else
+  
+  #endif
+#endif
   /*--------------示波器触发源---------------*/
-  //TODO: TIM3被flash占用
   #ifdef OSC_TRIGGER_TEST
-  osc_trigger_init(&osc_trigger_obj, GPIO_PIN_0, GPIOB, RISING_EDGE);
+  osc_trigger_init(&osc_trigger_obj, GPIO_PIN_0, GPIOB, RISING_EDGE, &htim5);
   osc_trigger_prepare(&osc_trigger_obj);
   #endif
   #ifdef CAL_TIME
-  time_calculator_init(&time_calculator_obj);
+  Timemeter_Init(&timemeter_obj);
   #endif
 
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
 
 
 //----------------------------------AT指令测试------------------------------
@@ -316,8 +345,11 @@ int main(void)
   printf("\r\n");
 
   SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 0);
-  // gen_flash_data第二个参数为图片所在flash首地址
-  gen_flash_data(&gd5f2gm7_obj, 0, RGB_COLOR_TEST_R1, RGB_COLOR_TEST_G1, RGB_COLOR_TEST_B1);
+  // gen_flash_data第二个参数为图片�???在flash首地�???
+  gen_flash_data(&gd5f2gm7_obj, 0, DGD_1_R1, DGD_1_G1, DGD_1_B1);
+  gen_flash_data(&gd5f2gm7_obj, 256*3, DGD_2_R1, DGD_2_G1, DGD_2_B1);
+  gen_flash_data(&gd5f2gm7_obj, 256*3*2, DGD_3_R1, DGD_3_G1, DGD_3_B1);
+
   GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xA0, &reg_status);
   printf("A0: %x\r\n", reg_status);
   GD5F2GM7_Get_Features(&gd5f2gm7_obj, 0xB0, &reg_status);
@@ -344,10 +376,25 @@ int main(void)
   // printf("\r\n");
 
   //------------------------------本振ADF4252测试------------------------------
-  #ifdef ADF4252_TEST
+#ifdef ADF4252_TEST
   ADF4252_Info_Struct adf4252_obj;
-  ADF4252_Init(&adf4252_obj, &hspi2, GPIO_PIN_6, GPIOA);
-  (&adf4252_obj)->_val_rf_n_divider  = 0x7B0000;                
+
+  #ifdef BOARD_v1
+  UTILS_RCC_GPIO_Enable(GPIOE);
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9|GPIO_PIN_10, GPIO_PIN_RESET);     
+  GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  ADF4252_Init(&adf4252_obj, &hspi3, GPIO_PIN_11, GPIOE);
+  #else
+  ADF4252_Init(&adf4252_obj, &hspi3, GPIO_PIN_6, GPIOA);
+  #endif
+
+  (&adf4252_obj)->_val_rf_n_divider  = 0x780008;                
   (&adf4252_obj)->_val_rf_r_divider  = 0x108009;
   (&adf4252_obj)->_val_rf_control    = 0x88C2;
   (&adf4252_obj)->_val_master        = 0x7C3;
@@ -356,19 +403,42 @@ int main(void)
   (&adf4252_obj)->_val_if_control    = 0xA6;
   ADF4252_Write_All_Registers(&adf4252_obj);
   HAL_Delay(1000);
-  #endif
+#endif
 
-  //------------------------------生成DDS的直流电�?------------------------------
+  //------------------------------生成DDS的直流电�????------------------------------
   // HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 470);
   // HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
 
   //------------------------------LTC5589驱动测试------------------------------
 #ifdef LTC5589_TEST
-  LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_0, GPIOB, GPIO_PIN_1, GPIOB);
-  LTC5589_Set_Frequency(&ltc5589_obj, 0x40);
+  #ifdef BOARD_v1
+  UTILS_RCC_GPIO_Enable(GPIOC);
+  UTILS_RCC_GPIO_Enable(GPIOB);
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, GPIO_PIN_RESET);  
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);  
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct); // clk
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct); // mosi
+
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct); // miso
+
+  LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_5, GPIOC, GPIO_PIN_7, GPIOE, GPIO_PIN_8, GPIOE);
+  #else
+  
+  // FIXME: 小板子没有EN Pin
+  LTC5589_Init(&ltc5589_obj, &hspi3, GPIO_PIN_0, GPIOB, GPIO_PIN_1, GPIOB, GPIO_PIN_7, GPIOE);
+  #endif
+  LTC5589_Set_Frequency(&ltc5589_obj, 0x41);
   
   LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, 0);
-  LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, 0x13);
+  LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, 131);//0x13
 #endif /* LTC5589_TEST */
 
 
@@ -378,36 +448,90 @@ int main(void)
 
   //------------------------------AD9833测试------------------------------
   #ifdef AD9833_TEST
-  AD9833_Init(&ad9833_obj, &hspi3, GPIO_PIN_6, GPIOA, 25000000);
-  AD9833_SetWave(&ad9833_obj, AD9833_WAVE_SINUSOID);
-
-  uint32_t freq = 1000;
+  #ifdef BOARD_v1
+  AD9833_Init(&ad9833_i, NULL, GPIO_PIN_14, GPIOB, 25000000);
+  AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
+  #else
+  AD9833_Init(&ad9833_i, NULL, GPIO_PIN_6, GPIOC, 25000000);
+  AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
+  #endif
+  AD9833_Init_Tx_DMA_TIM(&ad9833_i, &ad9833_q, &hspi2, &htim2);
+  uint32_t freq = 3000;
   uint32_t freq_list[] = {1000, 10000, 100000, 10000};
-  AD9833_SetFrequency(&ad9833_obj, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
-  AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
-  AD9833_SetWave(&ad9833_obj, AD9833_WAVE_UP_DOWN_RAMP);
+  // AD9833_Reset(&ad9833_i, true);
+  // AD9833_Reset(&ad9833_q, true);
+  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
+  HAL_Delay(1);
+  uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
+  SPI_Write_Half_Word(ad9833_i.spi, &temp);
+  UTILS_Delay_us(800);
+  Timemeter_Start(&timemeter_obj);
+  HAL_Delay(10);
+  UTILS_Delay_us(800);
+  Timemeter_End(&timemeter_obj, true);
+  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
+  HAL_Delay(1);
+  temp = AD9833_REG_PHASE0 | 0x000;
+  SPI_Write_Half_Word(ad9833_i.spi, &temp);
+  HAL_Delay(1);
+  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
+  HAL_Delay(1);
+  temp = AD9833_REG_PHASE0 | 0x3e6;
+  SPI_Write_Half_Word(ad9833_i.spi, &temp);
+  HAL_Delay(1);
+  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
+  
+  
+  // AD9833_SetWave(&ad9833_obj, AD9833_WAVE_UP_DOWN_RAMP);
+  // AD9833_SetWave(&ad9833_i, AD9833_WAVE_SINUSOID);
+  // AD9833_SetWave(&ad9833_q, AD9833_WAVE_SINUSOID);
+  // AD9833_FrequencyOutSelect(&ad9833_i, AD9833_OUT_FREQ0);
+  // AD9833_FrequencyOutSelect(&ad9833_q, AD9833_OUT_FREQ0);
+  // AD9833_PhaseOutSelect(&ad9833_i, AD9833_OUT_PHASE0);
+  // AD9833_PhaseOutSelect(&ad9833_q, AD9833_OUT_PHASE0);
+  // // AD9833_Reset(&ad9833_i, false);
+  // // AD9833_Reset(&ad9833_q, false);
+  // uint16_t phrase_i = 0;
+  // uint16_t phrase_q = 0x400;
+  // AD9833_SetPhase(&ad9833_i, AD9833_REG_PHASE0, &phrase_i, sizeof(phrase_i), UTILS_LOOP);
+  // AD9833_SetPhase(&ad9833_q, AD9833_REG_PHASE0, &phrase_q, sizeof(phrase_q), UTILS_LOOP);
+  HAL_Delay(1);
+  
+  HAL_Delay(1);
+  uint16_t raw_frq = 1500;
+  uint16_t frqh = AD9833_REG_FREQ0;
+  uint16_t frql = AD9833_REG_FREQ0;
+  AD9833_FrequencyConversion_2Reg(&ad9833_i, &raw_frq, &frqh, &frql);
+  printf("%x %x\r\n", frqh, frql);
+  AD9833_Write_Whole_Frq(&hspi2, &frqh, &frql);
+  HAL_Delay(1);
+  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
+  // AD9833_SetFrequency(&ad9833_i, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
+  // AD9833_SetFrequency(&ad9833_q, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
 
     // 01_001000
     // 00110100
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  // uint8_t i_dc_offset = 0x50;
-  // uint8_t ltc_freq = 0x3d; 
-  // uint8_t packet[256];
-  // int8_t gain = -19;
-  // uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-  // uint8_t ratio = 1;
   #endif
 
+  uint8_t i_dc_offset = 0x50;
+  uint8_t ltc_freq = 0x3d; 
+  uint8_t packet[256];
+  int8_t gain = -19;
+  uint8_t char_map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+  uint8_t ratio = 1;
+  uint16_t dds_phrase = 0x300;
+  
+
   #ifdef SSTV_TEST
-  // 在flashtest配置了
+  // 在flashtest配置�???
   AD9833_Init(&ad9833_i, NULL, GPIO_PIN_6, GPIOC, 25000000);
   AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
 /*
-  仅测试用，低速IO操作�?
+  仅测试用，低速IO操作�????
   PB10->CLK
   PC3->DATA
 */
@@ -434,19 +558,20 @@ int main(void)
   HAL_Delay(10);
   
   // osc_trigger_start(&osc_trigger_obj);
-  // 最后一个参数为发送的图片的首地址
+  // �???后一个参数为发�?�的图片的首地址
+  uint8_t send = 1;
   SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 0);
   SSTV_Transmit();
-  HAL_Delay(3000);
-  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 300);
-  SSTV_Transmit();
-  HAL_Delay(3000);
-  SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 600);
-  SSTV_Transmit();
+  
 
   // HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
   // HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
   #endif/* SSTV_TEST */
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  
   
   while (1)
   {
@@ -454,7 +579,84 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     printf("while\r\n");
-    HAL_Delay(3000);
+    HAL_Delay(1000);
+    #ifdef SSTV_TEST
+    if(Get_SSTV_Status() == UTILS_IDLE){
+      HAL_Delay(4000);
+      // HAL_TIM_Base_DeInit(&htim2);
+      // HAL_DMA_DeInit(sstv_info.AD9833_I->spi->hdmatx);
+      // MX_DMA_Init();
+      // MX_TIM2_Init();
+      if(send == 1){
+        SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 256*3);
+        SSTV_Transmit();
+        send++;
+      }else if(send == 2){
+        SSTV_Init(&SCT1_MODE, &ad9833_i, &ad9833_q, &gd5f2gm7_obj, 256*3*2);
+        SSTV_Transmit();
+        send++;
+      }
+    }
+    #endif
+
+    #ifdef AD9833_SCAN_TEST
+    #ifdef BOARD_v1
+    AD9833_Init(&ad9833_i, NULL, GPIO_PIN_14, GPIOB, 25000000);
+    AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
+    #else
+    AD9833_Init(&ad9833_i, NULL, GPIO_PIN_6, GPIOC, 25000000);
+    AD9833_Init(&ad9833_q, NULL, GPIO_PIN_12, GPIOB, 25000000);
+    #endif
+    AD9833_Init_Tx_DMA_TIM(&ad9833_i, &ad9833_q, &hspi2, &htim2);
+    uint32_t freq = 3000;
+    // Reset both DDS
+    // AD9833_Reset(&ad9833_i, true);
+    // AD9833_Reset(&ad9833_q, true);
+    HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+    uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
+    SPI_Write_Half_Word(ad9833_i.spi, &temp);
+    HAL_Delay(200);
+
+    // write i phase 0
+    HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    temp = AD9833_REG_PHASE0 | 0x000;
+    SPI_Write_Half_Word(ad9833_i.spi, &temp);
+    HAL_Delay(1);
+    // write q phase pi/2
+    HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    uint16_t dds_phrase_init = 0x3e0;
+    if(dds_phrase < 0x420){
+      dds_phrase += 4;
+    }else{
+      dds_phrase = dds_phrase_init;
+    }
+    // dds_phrase = 0x3e6;
+    printf("dds phrase: %x\r\n", dds_phrase);
+    temp = AD9833_REG_PHASE0 | dds_phrase;
+    SPI_Write_Half_Word(ad9833_i.spi, &temp);
+    HAL_Delay(1);
+
+    // write both DDS frq
+    HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+    uint16_t raw_frq = 1500;
+    uint16_t frqh = AD9833_REG_FREQ0;
+    uint16_t frql = AD9833_REG_FREQ0;
+    AD9833_FrequencyConversion_2Reg(&ad9833_i, &raw_frq, &frqh, &frql);
+    // printf("%x %x\r\n", frqh, frql);
+    AD9833_Write_Whole_Frq(&hspi2, &frqh, &frql);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
+    HAL_Delay(1000);
+    #endif
+
     // printf("while\r\n");
     // if (ring_buffer_get(&uart1_rx_event_rb, (uint8_t*)&uart1_rx_data_size, 4) != 0) {
     //     at_recv_task(&at, uart1_rx_data_size);
@@ -477,23 +679,20 @@ int main(void)
 
 
     //------------------------------LTC5589测试------------------------------
+    #ifdef LTC5589_SCAN_TEST
     // LTC5589_Set_Frequency(&ltc5589_obj, ltc_freq);
     // LTC5589_Read_Register(&ltc5589_obj, 0x00, rx_buff);
 
     // LTC5589_Set_DigitalGain_Coarse(&ltc5589_obj, gain);
 
-    /*
+    
     LTC5589_Set_DCOffset(&ltc5589_obj, LTC5589_CHANNEL_I, i_dc_offset);
-    packet[0] = char_map[(i_dc_offset & 0xF0) >> 4];
-    packet[1] = char_map[(i_dc_offset & 0x0F)];
-    packet[2] = '\n';
-    i_dc_offset += 5;
+    i_dc_offset += 10;
     if (i_dc_offset >= 250) {
         i_dc_offset = 1;
     }
-    HAL_UART_Transmit(&huart1, packet, 3, HAL_MAX_DELAY);
-    HAL_Delay(1000);
-    */
+    printf("mixer i dc offset: %d\r\n", i_dc_offset);
+    
 
     /*
     LTC5589_Set_IQ_GainRatio(&ltc5589_obj, ratio);
@@ -516,7 +715,7 @@ int main(void)
         }
         
         packet[2] = ' ';
-        // 扫增�???
+        // 扫增�??????
         packet[3] = '-';
         packet[4] = char_map[((-gain) & 0xF0) >> 4];
         packet[5] = char_map[((-gain) & 0x0F)];
@@ -543,7 +742,7 @@ int main(void)
     // AD9833_FrequencyOutSelect(&ad9833_obj, AD9833_OUT_FREQ0);
     HAL_Delay(1000);
     */
-
+    #endif
     //------------------------------LTC5589测试------------------------------
   }
   /* USER CODE END 3 */
@@ -740,7 +939,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
   hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
@@ -851,6 +1050,51 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -930,8 +1174,10 @@ static void MX_DMA_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+// CubeMX代码会将GPIO置高，尽量不用它生成
+
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
@@ -939,16 +1185,6 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_SET);
-
-  /*Configure GPIO pins : PB6 PB7 PB8 PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

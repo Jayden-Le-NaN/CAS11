@@ -98,31 +98,14 @@ typedef struct {
     uint8_t                         _pulse_porch_index;
     uint16_t                        _line_sended;
     uint16_t                        _flash_RA;
-
-//-------------------sstv模式配置信息-----------------
-    // uint16_t                     _sstv_dma_line_cnt;                // sstv的行数
-    // uint16_t*                    _tx_buffer;                        // 发送数据的缓冲区
-    // uint16_t                     _sstv_dma_line_length;             // 每一行数据的长度
-    // uint16_t                     _sstv_dma_one_line;                // 每一行要使用DMA的次数
-    // //-------------------VIS头配置信息-----------------
-    // uint16_t*                    _header_arr;                       // VIS头（部分模式还有别的）对应TIM的arr值
-    // uint16_t*                    _header_psc;                       // VIS头（部分模式还有别的）对应TIM的的psc值
-    // uint16_t*                    _header_frq;                       // VIS头（部分模式还有别的）对应频率寄存器值
-    // uint16_t                     _header_num;                       // sstv头长度，通常是13，有模式不是
-    // //---------循环中sync pulse和sync porch信息---------
-    // uint16_t*                    _pulse_porch_arr_ptr[4];           // （最多）四次扫描前的同步脉冲对应arr值
-    // uint16_t*                    _pulse_porch_psc_ptr[4];           // 四次扫描前的同步脉冲对应psc值
-    // uint16_t*                    _pulse_porch_frq_ptr[4];           // 四次扫描前的同步脉冲对应频率寄存器
-    // uint16_t*                    _pulse_porch_num[4];               // 四轮的pulse porch数
-    // //循环内的tim信息
-    // uint16_t                     dma_psc;
-    // uint16_t                     dma_arr;
+    uint8_t                         _sstv_1st_line_flag;
 
 }SSTV_Info_Struct;
 
-UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_init, uint8_t* R1, uint8_t* G1, uint8_t* B1);
+UTILS_Status gen_flash_data(GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t gd5_RA_init, const uint8_t* R1, const uint8_t* G1, const uint8_t* B1);
 
 UTILS_Status SSTV_Init(SSTV_MODE_Struct* sstv_mode_struct, AD9833_Info_Struct *ad9833_i, AD9833_Info_Struct *ad9833_q, GD5F2GM7_Info_Struct *gd5f2gm7_obj, uint16_t flash_RA);
+UTILS_Status Get_SSTV_Status(void);
 UTILS_Status SSTV_Transmit(void);
 void SSTV_TIM_Header_Callback(void);
 void SSTV_TIM_Loop_Callback(void);
