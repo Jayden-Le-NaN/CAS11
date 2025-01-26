@@ -409,7 +409,15 @@ UTILS_Status Timemeter_End(Timemeter_Struct* timemeter_obj, bool enPrint){
         return UTILS_ERROR;
     }
 }
-uint32_t Timemeter_Get_Interval(Timemeter_Struct* timemeter_obj){
+uint32_t Timemeter_getInterval(Timemeter_Struct* timemeter_obj){
     return timemeter_obj->interval_us;
+}
+
+uint32_t Timemeter_calInterval_us(uint32_t start, uint32_t end){
+    if(start >= end){
+        return (start - end)/MCU_FREQUENCY_MHZ;
+    }else{
+        return (start + (MCU_FREQUENCY_MHZ * 1e3 - end))/MCU_FREQUENCY_MHZ;
+    }
 }
 #endif

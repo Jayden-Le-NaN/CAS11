@@ -36,11 +36,17 @@ void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeD
  * @param   Data              :  需要写入的数据
  * @retval  None
  */
-void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data){
-    while(__HAL_SPI_GET_FLAG(sstv_tim_dma_spi, SPI_FLAG_TXE) == 0){}        // 等待上一轮传输完成
+UTILS_Status SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data){
+    uint32_t start = UTILS_GetSysTick();
+    while(__HAL_SPI_GET_FLAG(sstv_tim_dma_spi, SPI_FLAG_TXE) == 0){
+        if(Timemeter_calInterval_us(start, UTILS_GetSysTick()) > AD9833_SPI_MAX_DELAY_US){
+            return UTILS_ERROR;
+        };
+    }        // 等待上一轮传输完成
     sstv_tim_dma_spi->State = HAL_SPI_STATE_BUSY_TX;
     sstv_tim_dma_spi->Instance->DR = *Data;
     sstv_tim_dma_spi->State = HAL_SPI_STATE_READY;
+    return UTILS_OK;
     // printf("%x\r\n", *Data);
 }
 
@@ -83,22 +89,24 @@ void Write_Half_Word(uint16_t *Data){
 
 /**
  * @brief   通过SPI将DDS的整数和分数两个部分都写入到AD9833
- * @param   sstv_tim_dma_spi  :  SPI句柄
+ * @param   ad9833_obj        :  AD9833对象
  * @param   frqh              :  频率寄存器高14位
  * @param   frql              :  频率寄存器高低14位
- * @retval  None
+ * @retval  UTILS_OK:  Successfully initialized
+ * @retval  UTILS_ERROR:  Initialization failed
  */
-void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh, uint16_t *frql){
-    uint16_t temp = AD9833_REG_B28;
+UTILS_Status AD9833_Write_Whole_Frq(AD9833_Info_Struct* ad9833_obj, uint16_t *frqh, uint16_t *frql){
+    UTILS_Status status = UTILS_OK;
+    uint16_t temp = AD9833_REG_B28 | ad9833_obj->_control_reg_data;
     // 测试用的低速方式
     // Write_Half_Word(&temp);// 低速IO操作
     // Write_Half_Word(frql);
     // Write_Half_Word(frqh);
     // 高速方式
-    SPI_Write_Half_Word(sstv_tim_dma_spi, &temp);// | AD9833_OUT_FREQ0 | AD9833_OUT_PHASE0
-    SPI_Write_Half_Word(sstv_tim_dma_spi, frql);
-    SPI_Write_Half_Word(sstv_tim_dma_spi, frqh);
-    // UTILS_Delay_us(5);
+    status = SPI_Write_Half_Word(ad9833_obj->spi, &temp);
+    status = SPI_Write_Half_Word(ad9833_obj->spi, frql);
+    status = SPI_Write_Half_Word(ad9833_obj->spi, frqh);
+    return status;
 }
 
 
@@ -293,11 +301,12 @@ static UTILS_Status AD9833_Transmit_8bit_Array_DMA(AD9833_Info_Struct* ad9833_ob
  */
 static UTILS_Status AD9833_ControlRegisterWrite(AD9833_Info_Struct* ad9833_obj) {
     UTILS_Status status = UTILS_OK;
-    uint8_t packet[2];
-    packet[0] = ((AD9833_REG_CONTROL | ad9833_obj->_control_reg_data) & 0xFF00) >> 8;
-    packet[1] = (ad9833_obj->_control_reg_data) & 0x00FF;
+    // uint8_t packet[2];
+    // packet[0] = ((AD9833_REG_CONTROL | ad9833_obj->_control_reg_data) & 0xFF00) >> 8;
+    // packet[1] = (ad9833_obj->_control_reg_data) & 0x00FF;
     AD9833_Transmit_Start(ad9833_obj);
-    status = AD9833_Transmit_8bit_Array(ad9833_obj, packet, 2);
+    // status = AD9833_Transmit_8bit_Array(ad9833_obj, packet, 2);
+    SPI_Write_Half_Word(ad9833_obj->spi, &ad9833_obj->_control_reg_data);
     AD9833_Transmit_Stop(ad9833_obj);
     ad9833_obj->_updated = true;
     return status;
@@ -434,14 +443,15 @@ UTILS_Status AD9833_FrequencySetMode(AD9833_Info_Struct* ad9833_obj, uint8_t fre
 }
 
 
-/*
+/**
  * @brief               频率输出选择
  * @param ad9833_obj    ad9833 指定信息
  * @param freq_out_sel  频率输出选择
+ * @param enWR          是否启用写入
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输
  */
-UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t freq_out_sel) {
+UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t freq_out_sel, bool enWR) {
     UTILS_Status status = UTILS_OK;
     if (freq_out_sel == AD9833_OUT_FREQ0) {
         status = UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 11, 0);
@@ -453,17 +463,22 @@ UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t f
         status = UTILS_ERROR;
     }
     ad9833_obj->_updated = false;
+    if(enWR){
+        status = AD9833_ControlRegisterWrite(ad9833_obj);
+        ad9833_obj->_updated = true;
+    }
     return status;
 }
 
-/*
+/**
  * @brief               相位输出选择
  * @param ad9833_obj    ad9833 指定信息
  * @param phase_out_sel 相位输出选择
+ * @param enWR          是否启用写入
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输
  */
-UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase_out_sel) {
+UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase_out_sel, bool enWR) {
     UTILS_Status status = UTILS_OK;
     if (phase_out_sel == AD9833_OUT_PHASE0) {
         status = UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 10, 0);
@@ -475,6 +490,10 @@ UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase
         status = UTILS_ERROR;
     }
     ad9833_obj->_updated = false;
+    if(enWR){
+        status = AD9833_ControlRegisterWrite(ad9833_obj);
+        ad9833_obj->_updated = true;
+    }
     return status;
 }
 
@@ -492,93 +511,87 @@ UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输或者是传输模式选择错误
  */
-UTILS_Status AD9833_SetFrequency(AD9833_Info_Struct* ad9833_obj, uint16_t freq_reg, uint8_t freq_set_mode, uint32_t* freq, uint32_t len, UTILS_CommunicationMode tx_mode) {
-    UTILS_Status status = UTILS_OK;    
-    do {
-        //------------------------------频率设置模式选择------------------------------
-        if (freq_set_mode == AD9833_FREQ_ALL) {
-            UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 13, 1);
-            status = AD9833_ControlRegisterWrite(ad9833_obj);
-        }
-        else if (freq_set_mode == AD9833_FREQ_MSB) {
-            UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 13, 0);
-            UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 12, 1);
-            status = AD9833_ControlRegisterWrite(ad9833_obj);
-        }
-        else if (freq_set_mode == AD9833_FREQ_LSB) {
-            UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 13, 0);
-            UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 12, 0);
-            status = AD9833_ControlRegisterWrite(ad9833_obj);
-        }
-        else if (freq_set_mode == AD9833_FREQ_NO_CHANGE) {
-            status = UTILS_OK;
-        }
-        else {
-            status = UTILS_ERROR;
-            break;
-        }
+// UTILS_Status AD9833_SetFrequency(AD9833_Info_Struct* ad9833_obj, uint16_t freq_reg, uint8_t freq_set_mode, uint32_t* freq, uint32_t len, UTILS_CommunicationMode tx_mode) {
+//     UTILS_Status status = UTILS_OK;    
+//     do {
+//         //------------------------------频率设置模式选择------------------------------
+//         if (freq_set_mode == AD9833_FREQ_ALL) {
+//             UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 13, 1);
+//             status = AD9833_ControlRegisterWrite(ad9833_obj);
+//         }
+//         else if (freq_set_mode == AD9833_FREQ_MSB) {
+//             UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 13, 0);
+//             UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 12, 1);
+//             status = AD9833_ControlRegisterWrite(ad9833_obj);
+//         }
+//         else if (freq_set_mode == AD9833_FREQ_LSB) {
+//             UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 13, 0);
+//             UTILS_WriteBit(&(ad9833_obj->_control_reg_data), 12, 0);
+//             status = AD9833_ControlRegisterWrite(ad9833_obj);
+//         }
+//         else if (freq_set_mode == AD9833_FREQ_NO_CHANGE) {
+//             status = UTILS_OK;
+//         }
+//         else {
+//             status = UTILS_ERROR;
+//             break;
+//         }
         
-        //------------------------------控制寄存器设置状态检测------------------------------
-        if (status != UTILS_OK)
-            break;
+//         //------------------------------控制寄存器设置状态检测------------------------------
+//         if (status != UTILS_OK)
+//             break;
             
-        //------------------------------数据转换------------------------------
-        uint32_t converted_freq[len];
-        AD9833_FrequencyConversion(ad9833_obj, freq, len, converted_freq);
+//         //------------------------------数据转换------------------------------
+//         uint32_t converted_freq[len];
+//         AD9833_FrequencyConversion(ad9833_obj, freq, len, converted_freq);
         
-        //------------------------------持续打入数据------------------------------
-        len = len * sizeof(uint32_t);
-        uint16_t tx_data[len / 2];
-        uint32_t tx_len = len;
-        if (((ad9833_obj->_control_reg_data >> 13) & 0x01) == 1) {          // AD9833_FREQ_ALL
-            for (uint32_t i = 0; i < len / 2; ++i)
-                tx_data[i] = (converted_freq[i / 2] >> 14 * (i % 2)) & 0x3FFF;
-            tx_len = len;    
-        }
-        else {
-            if (((ad9833_obj->_control_reg_data >> 12) & 0x01) == 1) {      // AD9833_FREQ_MSB
-                for (uint32_t i = 0; i < len / 2; i += 2)
-                    tx_data[i / 2] = (converted_freq[i / 2] >> 14) & 0x3FFF;
-                tx_len = len / 2;
-            }
-            else {                                                          // AD9833_FREQ_LSB
-                for (uint32_t i = 0; i < len / 2; i += 2)
-                    tx_data[i / 2] = (converted_freq[i / 2]) & 0x3FFF;
-                tx_len = len / 2;
-            }
-        }
-        status = AD9833_RegisterWrite(ad9833_obj, freq_reg, tx_data, tx_len, tx_mode);
-    } while(0);
-    return status;
-}
+//         //------------------------------持续打入数据------------------------------
+//         len = len * sizeof(uint32_t);
+//         uint16_t tx_data[len / 2];
+//         uint32_t tx_len = len;
+//         if (((ad9833_obj->_control_reg_data >> 13) & 0x01) == 1) {          // AD9833_FREQ_ALL
+//             for (uint32_t i = 0; i < len / 2; ++i)
+//                 tx_data[i] = (converted_freq[i / 2] >> 14 * (i % 2)) & 0x3FFF;
+//             tx_len = len;    
+//         }
+//         else {
+//             if (((ad9833_obj->_control_reg_data >> 12) & 0x01) == 1) {      // AD9833_FREQ_MSB
+//                 for (uint32_t i = 0; i < len / 2; i += 2)
+//                     tx_data[i / 2] = (converted_freq[i / 2] >> 14) & 0x3FFF;
+//                 tx_len = len / 2;
+//             }
+//             else {                                                          // AD9833_FREQ_LSB
+//                 for (uint32_t i = 0; i < len / 2; i += 2)
+//                     tx_data[i / 2] = (converted_freq[i / 2]) & 0x3FFF;
+//                 tx_len = len / 2;
+//             }
+//         }
+//         status = AD9833_RegisterWrite(ad9833_obj, freq_reg, tx_data, tx_len, tx_mode);
+//     } while(0);
+//     return status;
+// }
 
-/*
+/**
  * @brief               设置相位
  * @param ad9833_obj    ad9833 指定信息
  * @param phase_reg     需要设置的相位寄存器
  * @param phase         需要设置的相位
- * @param len           数据的长度
- * @param tx_mode       数据发送的模式
- *                          UTILS_LOOP: 使用阻塞的方式接收
- *                          UTILS_DMA : 使用DMA的方式接收
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是已经有数据正在传输或者是传输模式选择错误
- * @note                关于参数len只能使用 sizeof(tx_data) 来传入数据, 不能是传入初始化时候的数组的大小
- *                      例如: uint32_t buff[256];
- *                      你应该传入 sizeof(buff);
- *                      而不是传入 256
- *                      因为 sizeof(buff) == 1024; --> 需要的是字节的数目
  */
-UTILS_Status AD9833_SetPhase(AD9833_Info_Struct* ad9833_obj, uint16_t phase_reg, uint16_t* phase, uint32_t len, UTILS_CommunicationMode tx_mode) {
-    UTILS_Status status = UTILS_OK;    
-    status = AD9833_RegisterWrite(ad9833_obj, phase_reg, phase, len, tx_mode);
+UTILS_Status AD9833_SetPhase(AD9833_Info_Struct* ad9833_obj, uint16_t phase_reg, uint16_t phase) {
+    UTILS_Status status = UTILS_OK;
+    uint16_t _phase_reg = phase_reg | phase;
+    status = SPI_Write_Half_Word(ad9833_obj->spi, &_phase_reg);
+    // status = AD9833_RegisterWrite(ad9833_obj, phase_reg, phase, len, tx_mode);
     return status;
 }
 
-/*
+/**
  * @brief               设置输出的波形
  * @param ad9833_obj    ad9833 指定信息
  * @param wave_mode     设置的波形
+ * @param enWR          是否启用写入
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是波形选择错误
  * @note                寄存器的位置如下
@@ -621,10 +634,11 @@ UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode, 
 }
 
 
-/*
+/**
  * @brief               设置睡眠模式
  * @param ad9833_obj    ad9833 指定信息
  * @param sleep_mode    设置的睡眠模式
+ * @param enWR          是否启用写入
  * @return              UTILS_OK    : 正常 
  *                      UTILS_ERROR : 发生错误,可能是操作超时或者是波形选择错误
  * @note                寄存器的位置如下

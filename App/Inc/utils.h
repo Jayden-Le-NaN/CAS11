@@ -141,7 +141,8 @@ typedef struct{
 UTILS_Status Timemeter_Init(Timemeter_Struct* timemeter_obj);
 UTILS_Status Timemeter_Start(Timemeter_Struct* timemeter_obj);
 UTILS_Status Timemeter_End(Timemeter_Struct* timemeter_obj, bool enPrint);
-uint32_t Timemeter_Get_Interval(Timemeter_Struct* timemeter_obj);
+uint32_t Timemeter_getInterval(Timemeter_Struct* timemeter_obj);
+uint32_t Timemeter_calInterval_us(uint32_t start, uint32_t end);
 #endif
 
 #endif

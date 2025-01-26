@@ -35,7 +35,8 @@
 #define AD9833_Transmit_Start(_ad9833_obj_)                 HAL_GPIO_WritePin((_ad9833_obj_)->fsync_pin_type, (_ad9833_obj_)->fsync_pin, GPIO_PIN_RESET)
 // 失能SPI写ad9833
 #define AD9833_Transmit_Stop(_ad9833_obj_)                  HAL_GPIO_WritePin((_ad9833_obj_)->fsync_pin_type, (_ad9833_obj_)->fsync_pin, GPIO_PIN_SET)
-
+//-------------------------SPI配置---------------------
+#define AD9833_SPI_MAX_DELAY_US                     100U            // SPI最大DELAY_US
 //------------------------------DMA状态机------------------------------
 typedef enum {
     AD9833_DMA_Idle                                 = 0x00,         // 空闲状态
@@ -61,14 +62,14 @@ typedef struct {
 void AD9833_Transmit_IRQ_Handler(AD9833_Info_Struct* ad9833_obj, SPI_HandleTypeDef* spi);
 
 //------------------------------外接函数------------------------------
-void SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data);
-void AD9833_Write_Whole_Frq(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *frqh, uint16_t *frql);
+UTILS_Status SPI_Write_Half_Word(SPI_HandleTypeDef* sstv_tim_dma_spi, uint16_t *Data);
+UTILS_Status AD9833_Write_Whole_Frq(AD9833_Info_Struct* ad9833_obj, uint16_t *frqh, uint16_t *frql);
 void AD9833_FrequencyConversion_2Reg(AD9833_Info_Struct* ad9833_obj, uint16_t* raw_freq, uint16_t* frqh, uint16_t* frql);
 UTILS_Status AD9833_FrequencySetMode(AD9833_Info_Struct* ad9833_obj, uint8_t freq_set_mode);
-UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t freq_out_sel);
-UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase_out_sel);
-UTILS_Status AD9833_SetFrequency(AD9833_Info_Struct* ad9833_obj, uint16_t freq_reg, uint8_t freq_set_mode, uint32_t* freq, uint32_t len, UTILS_CommunicationMode tx_mode);
-UTILS_Status AD9833_SetPhase(AD9833_Info_Struct* ad9833_obj, uint16_t phase_reg, uint16_t* phase, uint32_t len, UTILS_CommunicationMode tx_mode);
+UTILS_Status AD9833_FrequencyOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t freq_out_sel, bool enWR);
+UTILS_Status AD9833_PhaseOutSelect(AD9833_Info_Struct* ad9833_obj, uint8_t phase_out_sel, bool enWR);
+// UTILS_Status AD9833_SetFrequency(AD9833_Info_Struct* ad9833_obj, uint16_t freq_reg, uint8_t freq_set_mode, uint32_t* freq, uint32_t len, UTILS_CommunicationMode tx_mode);
+UTILS_Status AD9833_SetPhase(AD9833_Info_Struct* ad9833_obj, uint16_t phase_reg, uint16_t phase);
 UTILS_Status AD9833_SetWave(AD9833_Info_Struct* ad9833_obj, uint16_t wave_mode, bool enWR);
 UTILS_Status AD9833_Sleep(AD9833_Info_Struct* ad9833_obj, uint16_t sleep_mode, bool enWR);
 UTILS_Status AD9833_Reset(AD9833_Info_Struct* ad9833_obj, bool isReset, bool enWR);

@@ -457,64 +457,47 @@ int main(void)
   #endif
   AD9833_Init_Tx_DMA_TIM(&ad9833_i, &ad9833_q, &hspi2, &htim2);
   uint32_t freq = 3000;
-  uint32_t freq_list[] = {1000, 10000, 100000, 10000};
-  // AD9833_Reset(&ad9833_i, true);
-  // AD9833_Reset(&ad9833_q, true);
-  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
-  HAL_Delay(1);
-  uint16_t temp = AD9833_REG_CONTROL | AD9833_REG_RESET;
-  SPI_Write_Half_Word(ad9833_i.spi, &temp);
-  UTILS_Delay_us(800);
-  Timemeter_Start(&timemeter_obj);
-  HAL_Delay(10);
-  UTILS_Delay_us(800);
-  Timemeter_End(&timemeter_obj, true);
-  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
-  HAL_Delay(1);
-  temp = AD9833_REG_PHASE0 | 0x000;
-  SPI_Write_Half_Word(ad9833_i.spi, &temp);
-  HAL_Delay(1);
-  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
-  HAL_Delay(1);
-  temp = AD9833_REG_PHASE0 | 0x3e6;
-  SPI_Write_Half_Word(ad9833_i.spi, &temp);
-  HAL_Delay(1);
-  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_RESET);
-  
-  
-  // AD9833_SetWave(&ad9833_obj, AD9833_WAVE_UP_DOWN_RAMP);
-  // AD9833_SetWave(&ad9833_i, AD9833_WAVE_SINUSOID);
-  // AD9833_SetWave(&ad9833_q, AD9833_WAVE_SINUSOID);
-  // AD9833_FrequencyOutSelect(&ad9833_i, AD9833_OUT_FREQ0);
-  // AD9833_FrequencyOutSelect(&ad9833_q, AD9833_OUT_FREQ0);
-  // AD9833_PhaseOutSelect(&ad9833_i, AD9833_OUT_PHASE0);
-  // AD9833_PhaseOutSelect(&ad9833_q, AD9833_OUT_PHASE0);
-  // // AD9833_Reset(&ad9833_i, false);
-  // // AD9833_Reset(&ad9833_q, false);
-  // uint16_t phrase_i = 0;
-  // uint16_t phrase_q = 0x400;
-  // AD9833_SetPhase(&ad9833_i, AD9833_REG_PHASE0, &phrase_i, sizeof(phrase_i), UTILS_LOOP);
-  // AD9833_SetPhase(&ad9833_q, AD9833_REG_PHASE0, &phrase_q, sizeof(phrase_q), UTILS_LOOP);
-  HAL_Delay(1);
-  
-  HAL_Delay(1);
+  AD9833_Transmit_Start(&ad9833_q);
+  AD9833_Transmit_Start(&ad9833_i);
+  // AD9833_Transmit_Stop(&ad9833_q);
+  // AD9833_Transmit_Stop(&ad9833_i);
+  // UTILS_Delay_us(10);
+  // AD9833_Reset(&ad9833_i, true, true);
+  // UTILS_Delay_us(10);
+  // AD9833_Transmit_Start(&ad9833_i);
+  // UTILS_Delay_us(10);
+  // AD9833_SetPhase(&ad9833_i, AD9833_REG_PHASE0, 0x000);
+  // UTILS_Delay_us(10);
+  // AD9833_Transmit_Stop(&ad9833_i);
+
+  // AD9833_Transmit_Start(&ad9833_q);
+  // UTILS_Delay_us(10);
+  // AD9833_SetPhase(&ad9833_q, AD9833_REG_PHASE0, 0x400);
+  // UTILS_Delay_us(10);
+
+  // AD9833_Transmit_Start(&ad9833_i);   // 同时控制I Q路
+  // AD9833_SetWave(&ad9833_i, AD9833_WAVE_SINUSOID, false);
+  // AD9833_FrequencyOutSelect(&ad9833_i, AD9833_OUT_FREQ0, false);
+  // AD9833_PhaseOutSelect(&ad9833_i, AD9833_OUT_PHASE0, false);
+  // AD9833_Sleep(&ad9833_i, AD9833_SLEEP_NO_PWERDOWN, false);
+
   uint16_t raw_frq = 1500;
   uint16_t frqh = AD9833_REG_FREQ0;
   uint16_t frql = AD9833_REG_FREQ0;
   AD9833_FrequencyConversion_2Reg(&ad9833_i, &raw_frq, &frqh, &frql);
-  printf("%x %x\r\n", frqh, frql);
-  AD9833_Write_Whole_Frq(&hspi2, &frqh, &frql);
-  HAL_Delay(1);
-  HAL_GPIO_WritePin(ad9833_i.fsync_pin_type, ad9833_i.fsync_pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(ad9833_q.fsync_pin_type, ad9833_q.fsync_pin, GPIO_PIN_SET);
-  // AD9833_SetFrequency(&ad9833_i, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
-  // AD9833_SetFrequency(&ad9833_q, AD9833_REG_FREQ0, AD9833_FREQ_ALL, &freq, sizeof(freq), UTILS_LOOP);
+  // printf("%x %x\r\n", frqh, frql);
+  AD9833_Reset(&ad9833_i, true, false); // 开启输出
+  UTILS_Delay_us(10);
+  AD9833_Write_Whole_Frq(&ad9833_i, &frqh, &frql);  // 同时写入control reg
+  UTILS_Delay_us(10);
+  AD9833_Transmit_Stop(&ad9833_i);
+  AD9833_Transmit_Stop(&ad9833_q);
 
-    // 01_001000
-    // 00110100
+  HAL_Delay(3000);
+  raw_frq = 2000;
+  AD9833_FrequencyConversion_2Reg(&ad9833_i, &raw_frq, &frqh, &frql);
+  AD9833_Write_Whole_Frq(&ad9833_i, &frqh, &frql);
+
   #endif
 
   uint8_t i_dc_offset = 0x50;
