@@ -459,6 +459,8 @@ int main(void)
   uint32_t freq = 3000;
   AD9833_Transmit_Start(&ad9833_q);
   AD9833_Transmit_Start(&ad9833_i);
+  // 使能以后要等一会儿
+  UTILS_Delay_us(10);
   // AD9833_Transmit_Stop(&ad9833_q);
   // AD9833_Transmit_Stop(&ad9833_i);
   // UTILS_Delay_us(10);
@@ -486,17 +488,17 @@ int main(void)
   uint16_t frql = AD9833_REG_FREQ0;
   AD9833_FrequencyConversion_2Reg(&ad9833_i, &raw_frq, &frqh, &frql);
   // printf("%x %x\r\n", frqh, frql);
-  AD9833_Reset(&ad9833_i, true, false); // 开启输出
+  AD9833_Reset(&ad9833_i, false, false); // 开启输出
   UTILS_Delay_us(10);
   AD9833_Write_Whole_Frq(&ad9833_i, &frqh, &frql);  // 同时写入control reg
   UTILS_Delay_us(10);
-  AD9833_Transmit_Stop(&ad9833_i);
-  AD9833_Transmit_Stop(&ad9833_q);
-
+  
   HAL_Delay(3000);
   raw_frq = 2000;
   AD9833_FrequencyConversion_2Reg(&ad9833_i, &raw_frq, &frqh, &frql);
   AD9833_Write_Whole_Frq(&ad9833_i, &frqh, &frql);
+  AD9833_Transmit_Stop(&ad9833_i);
+  AD9833_Transmit_Stop(&ad9833_q);
 
   #endif
 
